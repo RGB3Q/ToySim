@@ -1,22 +1,14 @@
-import dearpygui.dearpygui as dpg
+from dearpygui.dearpygui import *
 
-dpg.create_context()
+def clear_window(sender, app_data):
+    delete_item(main_window, children_only=True)
 
-with dpg.window(label="Example Window"):
-    dpg.add_text("Hello, world")
-    dpg.add_button(label="Save")
-    dpg.add_input_text(label="string", default_value="Quick brown fox")
-    dpg.add_slider_float(label="float", default_value=0.273, max_value=1)
+with window() as main_window:
+    add_text("This is the main window!")
 
-dpg.create_viewport(title='Custom Title', width=600, height=200)
-dpg.setup_dearpygui()
-dpg.show_viewport()
+with window():
+    add_button("Clear Main Window", callback=clear_window)
 
-# below replaces, start_dearpygui()
-while dpg.is_dearpygui_running():
-    # insert here any code you would like to run in the render loop
-    # you can manually stop by using stop_dearpygui()
-    print("this will run every frame")
-    dpg.render_dearpygui_frame()
-
-dpg.destroy_context()
+setup_dearpygui()
+show_viewport()
+start_dearpygui()

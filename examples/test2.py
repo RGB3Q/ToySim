@@ -1,5 +1,5 @@
-from core import simulator as ts
-from core.gui.visualizer import Visualizer
+from src import simulator as ts
+from src.gui.visualizer import Visualizer
 
 sim = ts.Simulation()
 

@@ -1,7 +1,7 @@
-from core import simulator as ts
-from core.vehicle.vehicle_generator import VehicleGenerator
-from core.gui.visualizer import Visualizer
-from core.signal.SignalGroup import TrafficSignal
+from src import simulator as ts
+from src.vehicle.vehicle_generator import VehicleGenerator
+from src.gui.visualizer import Visualizer
+from src.signal.SignalGroup import TrafficSignal
 
 sim = ts.Simulation()
 
