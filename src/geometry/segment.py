@@ -6,17 +6,20 @@ from abc import ABC, abstractmethod
 from math import sqrt
 from scipy.integrate import quad
 from src.signal.SignalGroup import TrafficSignal
+from src.geometry.lanes import Lane
 
 
 # define a class for a road segment for micro simulation
 class Segment:
-    def __init__(self, id:str, points):
+    def __init__(self, id:str, points, num_lanes):
+        self.speed_limit = None
+        self.lanes = []
         self.id = id
 
         self.points = points
         # Point
         self.get_point = interp1d(linspace(0, 1, len(self.points)), self.points, axis=0)
-        
+
         self.vehicles = deque()
         self.length = self.get_length()
 
@@ -25,6 +28,13 @@ class Segment:
         self.has_traffic_signal = None
         self.traffic_signal_group = None
         self.traffic_signal = None
+
+        # number of lanes
+        self.num_lanes = num_lanes
+
+        self.lane_width = 3.5
+
+        self.create_lanes()
 
     def add_vehicle(self, vehicle):
         self.vehicles.append(vehicle.id)
@@ -128,6 +138,9 @@ class Segment:
         self.traffic_signal_group = group
         self.has_traffic_signal = True
 
+    def set_speed_limit(self, speed_limit):
+        self.speed_limit = speed_limit
+
     @property
     def traffic_signal_state(self):
         if self.has_traffic_signal:
@@ -135,23 +148,17 @@ class Segment:
             return self.traffic_signal.current_cycle[i]
         return True
 
-    # def update(self):
-    #     # Check for traffic signal
-    #     if self.traffic_signal_state:
-    #         # If traffic signal is green or doesn't exist
-    #         # Then let vehicles pass
-    #         self.vehicles[0].unstop()
-    #         for vehicle in self.vehicles:
-    #             vehicle.unslow()
-    #     else:
-    #         # If traffic signal is red
-    #         if self.vehicles[0].x >= self.length - self.traffic_signal.slow_distance:
-    #             # Slow vehicles in slowing zone
-    #             self.vehicles[0].slow(self.traffic_signal.slow_speed)
-    #         if self.length - self.traffic_signal.stop_distance <= \
-    #                 self.vehicles[0].x <= self.length - self.traffic_signal.stop_distance / 2:
-    #             # Stop vehicles in the stop zone
-    #             self.vehicles[0].stop()
+    def create_lanes(self):
+        for i in range(self.num_lanes):
+            lane_id = self.id + "_" + str(i)
+            speed_limit = self.speed_limit
+            lane_width = self.lane_width
+            lane_length = self.length
+            self.lanes.append(Lane(lane_id, speed_limit, lane_width, lane_length))
+
+
+
+
 
 
 

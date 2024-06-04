@@ -18,6 +18,8 @@ class Simulation:
         self.dt = 1/60
         self.traffic_signals = {}
 
+        # self.lanes = {}
+
     def add_signal(self, signal):
         self.traffic_signals[signal.signal_id] = signal
 
@@ -40,12 +42,12 @@ class Simulation:
         seg = Segment(*args)
         self.add_segment(seg)
 
-    def create_quadratic_bezier_curve(self, id, points):
-        cur = QuadraticCurve(id, points)
+    def create_quadratic_bezier_curve(self, id, points, lanes):
+        cur = QuadraticCurve(id, points, lanes)
         self.add_segment(cur)
 
-    def create_cubic_bezier_curve(self, id, points):
-        cur = CubicCurve(id, points)
+    def create_cubic_bezier_curve(self, id, points, lanes):
+        cur = CubicCurve(id, points, lanes)
         self.add_segment(cur)
 
     def create_vehicle_generator(self, **kwargs):
@@ -79,10 +81,10 @@ class Simulation:
                     #         self.vehicles[head_veh_id].x <= segment.length - segment.traffic_signal.stop_distance / 2:
                         # Stop vehicles in the stop zone
                         self.vehicles[head_veh_id].stop()
-                self.vehicles[head_veh_id].update_position(None, self.dt)
+                self.vehicles[head_veh_id].IDM(None, self.dt)
 
             for i in range(1, len(segment.vehicles)):
-                self.vehicles[segment.vehicles[i]].update_position(self.vehicles[segment.vehicles[i-1]], self.dt)
+                self.vehicles[segment.vehicles[i]].IDM(self.vehicles[segment.vehicles[i - 1]], self.dt)
 
         # Check roads for out of bounds vehicle
         for segment in self.segments.values():
@@ -118,4 +120,65 @@ class Simulation:
         self.t += self.dt
         self.frame_count += 1
 
+    def update_new(self):
+        # Update vehicles
+        for segment in self.segments.values():
+            for lane in segment.lanes:
+                if len(lane.vehicles) != 0:
+                    head_veh = lane.vehicles[0]
+                    # segment.update()
+                    if segment.traffic_signal_state:
+                        # If traffic signal is green or doesn't exist
+                        # Then let vehicles pass
+                        head_veh.unstop()
+                        for vehicle_id in lane.vehicles:
+                            head_veh.unslow()
+                    else:
+                        # If traffic signal is red
+                        if head_veh.x >= segment.length - segment.traffic_signal.slow_distance:
+                            # Slow vehicles in slowing zone
+                            head_veh.slow(segment.traffic_signal.slow_speed)
+                        if segment.length - segment.traffic_signal.stop_distance <= \
+                                head_veh.x <= segment.length - segment.traffic_signal.stop_distance / 2:
+                            head_veh.stop()
+                    head_veh.IDM(None, self.dt)
 
+                # update vehicles using IDM and MOBIL
+                if len(lane.vehicles) > 1:
+                    for veh in lane.vehicles[1:]:
+                        veh.IDM(veh.lead, self.dt)
+
+        # Check roads for out of bounds vehicle
+        for segment in self.segments.values():
+            for lane in segment.lanes:
+                # If seg has no vehicles, continue
+                if len(lane.vehicles) == 0:
+                    continue
+                # If not
+                vehicle_id = lane.vehicles[0]
+                vehicle = self.vehicles[vehicle_id]
+                # If first vehicle is out of road bounds
+                if vehicle.x >= segment.length:
+                    # If vehicle has a next road
+                    if vehicle.current_road_index + 1 < len(vehicle.path):
+                        # Update current road to next road
+                        vehicle.current_road_index += 1
+                        # Add it to the next road
+                        next_road_id = vehicle.path[vehicle.current_road_index]
+                        self.segments[next_road_id].vehicles.append(vehicle_id)
+                    # Reset vehicle properties
+                    vehicle.x = 0
+                    # In all cases, remove it from its road
+                    segment.vehicles.popleft()
+
+        # Update traffic lights
+        for sigal_id, signal in self.traffic_signals.items():
+            signal.update(self)
+
+
+        # Update vehicle generators
+        for gen in self.vehicle_generator:
+            gen.update(self)
+        # Increment time
+        self.t += self.dt
+        self.frame_count += 1
