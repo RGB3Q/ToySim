@@ -1,3 +1,5 @@
+import time
+
 from src.vehicle.vehicle_generator import VehicleGenerator
 from src.geometry.quadratic_curve import QuadraticCurve
 from src.geometry.cubic_curve import CubicCurve
@@ -26,7 +28,7 @@ class Simulation:
     def add_vehicle(self, veh):
         self.vehicles[veh.id] = veh
         if len(veh.path) > 0:
-            self.segments[veh.path[0]].add_vehicle(veh)
+            self.segments[veh.path[0]].lanes[0].add_vehicle(veh)
 
     def add_segment(self, seg):
         self.segments.update({seg.id: seg})
@@ -54,9 +56,15 @@ class Simulation:
         gen = VehicleGenerator(kwargs)
         self.add_vehicle_generator(gen)
 
-    def run(self, steps):
+    def run(self, steps, delay: int):
+        """
+        Run the simulation for a given number of steps
+        :param steps:
+        :param delay: ms
+        :return:
+        """
         for _ in range(steps):
-            self.update()
+            self.update_with_lane(delay)
 
     def update(self):
         # Update vehicles
@@ -112,7 +120,6 @@ class Simulation:
         for sigal_id, signal in self.traffic_signals.items():
             signal.update(self)
 
-
         # Update vehicle generators
         for gen in self.vehicle_generator:
             gen.update(self)
@@ -120,10 +127,21 @@ class Simulation:
         self.t += self.dt
         self.frame_count += 1
 
-    def update_new(self):
+    def update_with_lane(self, delay:int):
         # Update vehicles
         for segment in self.segments.values():
             for lane in segment.lanes:
+                # get adjacent lanes
+                if lane.lane_index - 1 < 0 and lane.lane_index+1 >= len(segment.lanes):
+                    adjacent_lanes = [lane, None, None]
+                elif lane.lane_index - 1 < 0 and lane.lane_index+1 < len(segment.lanes):
+                    adjacent_lanes = [lane, None, segment.lanes[lane.lane_index+1]]
+                elif lane.lane_index - 1 >= 0 and lane.lane_index+1 >= len(segment.lanes):
+                    adjacent_lanes = [lane, segment.lanes[lane.lane_index-1], None]
+                else:
+                    adjacent_lanes = [lane, segment.lanes[lane.lane_index-1], segment.lanes[lane.lane_index+1]]
+
+                # update vehicles on each lane
                 if len(lane.vehicles) != 0:
                     head_veh = lane.vehicles[0]
                     # segment.update()
@@ -142,11 +160,15 @@ class Simulation:
                                 head_veh.x <= segment.length - segment.traffic_signal.stop_distance / 2:
                             head_veh.stop()
                     head_veh.IDM(None, self.dt)
+                    if not head_veh.x > segment.length - segment.ban_lane_change_distance:
+                        head_veh.evaluate_and_perform_lane_change(adjacent_lanes)
 
                 # update vehicles using IDM and MOBIL
                 if len(lane.vehicles) > 1:
                     for veh in lane.vehicles[1:]:
                         veh.IDM(veh.lead, self.dt)
+                        if not veh.x > segment.length - segment.ban_lane_change_distance:
+                            veh.evaluate_and_perform_lane_change(adjacent_lanes)
 
         # Check roads for out of bounds vehicle
         for segment in self.segments.values():
@@ -155,26 +177,25 @@ class Simulation:
                 if len(lane.vehicles) == 0:
                     continue
                 # If not
-                vehicle_id = lane.vehicles[0]
-                vehicle = self.vehicles[vehicle_id]
+                vehicle = lane.vehicles[0]
                 # If first vehicle is out of road bounds
-                if vehicle.x >= segment.length:
+                if vehicle.x >= lane.lane_length:
                     # If vehicle has a next road
                     if vehicle.current_road_index + 1 < len(vehicle.path):
                         # Update current road to next road
                         vehicle.current_road_index += 1
                         # Add it to the next road
                         next_road_id = vehicle.path[vehicle.current_road_index]
-                        self.segments[next_road_id].vehicles.append(vehicle_id)
+
+                        self.segments[next_road_id].lanes[0].add_vehicle(vehicle)
                     # Reset vehicle properties
                     vehicle.x = 0
                     # In all cases, remove it from its road
-                    segment.vehicles.popleft()
+                    lane.vehicles.remove(vehicle)
 
         # Update traffic lights
         for sigal_id, signal in self.traffic_signals.items():
             signal.update(self)
-
 
         # Update vehicle generators
         for gen in self.vehicle_generator:
@@ -182,3 +203,4 @@ class Simulation:
         # Increment time
         self.t += self.dt
         self.frame_count += 1
+        time.sleep(delay//100)

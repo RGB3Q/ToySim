@@ -1,5 +1,10 @@
+import time
+
 import dearpygui.dearpygui as dpg
 import os
+import math
+from src.gui.segment_highlighter import SegmentHighlighter
+import numpy as np
 
 # Get the absolute path to the image
 image_path = os.path.join(os.path.dirname(__file__), "logo_1.png")
@@ -8,19 +13,30 @@ icon_path = os.path.join(os.path.dirname(__file__), "logo_icon256.ico")
 
 class Visualizer:
     def __init__(self, simulation):
+        print("Initializing Visualizer...")
         self.simulation = simulation
         self.is_running = False
+        self.is_dragging = False
 
         self.zoom = 5
         self.offset = (0, 0)
 
         # simulation speed
         self.speed = 1
+        self.delay = 0
+        self.zoom_speed = 1
 
         self.setup()
         self.create_windows()
-
+        self.create_handlers()
         self.setup_themes()
+
+        self.show_speed = False
+        self.show_acceleration = False
+        self.show_id = False
+
+        # 实例化SegmentHighlighter
+        # self.initialize_highlighter()
 
     def setup(self):
         dpg.create_context()
@@ -34,21 +50,12 @@ class Visualizer:
         with dpg.texture_registry():
             self.logo = dpg.add_static_texture(width, height, data, tag="logo_compressed")
 
-
-
-    def create_tab(self):
-        self.tab = dpg.generate_uuid()
-        with dpg.tab(label="Kramers-Kronig", tag=self.tab):
-            with dpg.child_window(border=False):
-                with dpg.group(horizontal=True):
-                    self.create_windows(label = 'tst')
-
     def create_windows(self):
         # create main window to display simulation
         dpg.add_window(tag='viz_port',
                        label="Simulation",
                        width=900,
-                       height=600,
+                       height=800,
                        no_close=True,
                        pos=(250, 0),
                        no_background=True,
@@ -57,13 +64,68 @@ class Visualizer:
         dpg.add_draw_node(tag="OverlayCanvas", parent="viz_port")
         dpg.add_draw_node(tag="Canvas", parent="viz_port")
 
-        with dpg.window(tag="SimControl", label="sim_control", no_close=True, no_collapse=True, width=240, no_resize=True, no_move=True):
+        with dpg.window(tag="SimControl", label="sim_control", no_close=True, no_collapse=True, width=250, no_resize=True, no_move=True):
 
             with dpg.group(horizontal=True):
                 dpg.add_button(label="Run", tag="RunStopButton", callback=self.toggle, width=60)
-                dpg.add_button(label="Step", tag="StepButton", callback=self.simulation.update, width=60)
+                dpg.add_button(label="Step", tag="StepButton", callback=self.simulation.update_with_lane, width=60)
+
+            dpg.add_slider_int(tag="SpeedUp", label=">> Speed Up", width=150,min_value=1, max_value=100, default_value=1,
+                               callback=self.set_speed)
+            dpg.add_slider_int(tag="Delay", label=">> Delay", width=150, min_value=10, max_value=200,
+                               default_value=0,
+                               callback=self.delay)
+
+            with dpg.table(header_row=False):
+                dpg.add_table_column()
+                dpg.add_table_column()
+
+                with dpg.table_row():
+                    dpg.add_text("Status:")
+                    dpg.add_text("_", tag="StatusText")
+
+                with dpg.table_row():
+                    dpg.add_text("Time:")
+                    dpg.add_text("_s", tag="TimeStatus")
+
+                with dpg.table_row():
+                    dpg.add_text("Frame:")
+                    dpg.add_text("_", tag="FrameStatus")
         # with dpg.window(tag="logo", label="logo", width=300, height=300, no_resize=False, no_move=False, no_title_bar=False, no_background=True):
         #     dpg.add_image(self.logo)
+        if not hasattr(self, 'show_speed'):
+            self.show_speed = False
+        if not hasattr(self, 'show_acceleration'):
+            self.show_acceleration = False
+        if not hasattr(self, 'show_id'):
+            self.show_id = False
+        with dpg.window(label="Vehicle Info",pos=[0,180],width=250, height=120, no_close=True, no_collapse=True, no_resize=True, no_move=False):
+            dpg.add_checkbox(label="Show Speed", default_value=self.show_speed,
+                             callback=lambda sender, app_data: setattr(self, 'show_speed', app_data))
+            dpg.add_checkbox(label="Show Acceleration", default_value=self.show_acceleration,
+                             callback=lambda sender, app_data: setattr(self, 'show_acceleration', app_data))
+            dpg.add_checkbox(label="Show ID", default_value=self.show_id,
+                             callback=lambda sender, app_data: setattr(self, 'show_id', app_data))
+
+    def create_handlers(self):
+        with dpg.handler_registry():
+            dpg.add_mouse_down_handler(callback=self.mouse_down)
+            dpg.add_mouse_drag_handler(callback=self.mouse_drag)
+            dpg.add_mouse_release_handler(callback=self.mouse_release)
+            dpg.add_mouse_wheel_handler(callback=self.mouse_wheel)
+
+    def update_panels(self):
+        # Update status text
+        if self.is_running:
+            dpg.set_value("StatusText", "Running")
+            dpg.configure_item("StatusText", color=(0, 255, 0))
+        else:
+            dpg.set_value("StatusText", "Stopped")
+            dpg.configure_item("StatusText", color=(255, 0, 0))
+
+        # Update time and frame text
+        dpg.set_value("TimeStatus", f"{self.simulation.t:.2f}s")
+        dpg.set_value("FrameStatus", self.simulation.frame_count)
 
     def toggle(self):
         if self.is_running:
@@ -89,6 +151,7 @@ class Visualizer:
         dpg.destroy_context()
 
     def render_loop(self):
+        self.update_inertial_zoom()
         # Remove old drawings
         dpg.delete_item("OverlayCanvas", children_only=True)
         dpg.delete_item("Canvas", children_only=True)
@@ -96,11 +159,16 @@ class Visualizer:
         self.draw_segments()
         self.draw_vehicles()
 
+        self.draw_tl()
+
         # Apply transformations
         self.apply_transformation()
 
+        # Update panels
+        self.update_panels()
+
         if self.is_running:
-            self.simulation.run(self.speed)
+            self.simulation.run(self.speed, self.delay)
 
     def draw_segments(self):
         for _, segment in self.simulation.segments.items():
@@ -110,29 +178,164 @@ class Visualizer:
                               thickness=segment_width * self.zoom,
                               parent="Canvas",
                               )
-            dpg.draw_arrow(segment.points[-1], segment.points[-2], thickness=0, size=1, color=(0, 0, 0, 50), parent="Canvas")
+            # Calculate the unit normal vector of the segment
+            # Assuming points are given in order and we use the first two to calculate direction
+            delta = np.array(segment.points[1]) - np.array(segment.points[0])
+            normal_vector = np.array([-delta[1], delta[0]])  # Rotate by 90 degrees counter-clockwise
+            unit_normal_vector = normal_vector / np.linalg.norm(normal_vector)
+
+            # Calculate the lane lines
+            half_segment_width = segment_width / 2
+            lane_width = segment.lane_width * self.zoom
+            num_lanes = segment.num_lanes
+            lane_offset = np.linspace(-half_segment_width, half_segment_width, num=num_lanes + 1)
+
+            for offset in lane_offset:
+                lane_points = []
+                for p in segment.points:
+                    # Offset each point along the unit normal vector
+                    adjusted_point = np.array(p) + offset * unit_normal_vector
+                    lane_points.append(tuple(adjusted_point))
+
+                # Draw the lane line
+                dpg.draw_polyline(lane_points,
+                                  color=(102, 102, 102),  # White color for lane lines
+                                  thickness=0.1 * self.zoom,
+                                  parent="Canvas",
+                                  )
+            # dpg.draw_arrow(segment.points[-1], segment.points[-2], thickness=0, size=1, color=(0, 0, 0, 50), parent="Canvas")
 
     def draw_vehicles(self):
+        def offset_position(position, heading, lane_width, offset_multiplier):
+            """
+            结合当前所在车道偏移车辆的位置,默认向右偏移为正
+            :param position: 原始位置，一个包含x和y坐标的元组 (x, y)
+            :param heading: 车辆前进方向，以弧度为单位
+            :param lane_width: 车道宽度，用于偏移的固定量
+            :param offset_multiplier: 偏移的倍数，正数为向右偏移，负数为向左偏移
+            :return: 偏移后的新位置 (x, y)
+            """
+            dx = -lane_width * math.sin(heading)
+            dy = lane_width * math.cos(heading)
+            # 应用偏移
+            new_x = position[0] + offset_multiplier * dx
+            new_y = position[1] + offset_multiplier * dy
+            return new_x, new_y
+
         for _, segment in self.simulation.segments.items():
-            for vehicle_id in segment.vehicles:
-                vehicle = self.simulation.vehicles[vehicle_id]
-                progress = vehicle.x / segment.length
+            for lane in segment.lanes:
+                for vehicle in lane.vehicles:
 
-                position = segment.get_point(progress)
-                heading = segment.get_heading(progress)
+                    progress = vehicle.x / segment.length
+                    if progress > 1:
+                        progress = 1
 
-                node = dpg.add_draw_node(parent="Canvas")
-                dpg.draw_line(
-                    (0, 0),
-                    (vehicle.length, 0),
-                    thickness=1.76 * self.zoom,
-                    color=(0, 0, 200),
-                    parent=node
-                )
+                    position = segment.get_point(progress)
 
-                translate = dpg.create_translation_matrix(position)
-                rotate = dpg.create_rotation_matrix(heading, [0, 0, 1])
-                dpg.apply_transform(node, translate * rotate)
+                    offset_num = ((vehicle.at_lane +1) * 2 - 1 - segment.num_lanes)/2
+                    heading = segment.get_heading(progress)
+                    position_at_lane = offset_position(position, heading, segment.lane_width, offset_num)
+
+                    node = dpg.add_draw_node(parent="Canvas")
+                    dpg.draw_line(
+                        (0, 0),
+                        (vehicle.length, 0),
+                        thickness=1.76 * self.zoom,
+                        color=(0, 0, 200),
+                        parent=node
+                    )
+
+                    translate = dpg.create_translation_matrix(position_at_lane)
+                    rotate = dpg.create_rotation_matrix(heading, [0, 0, 1])
+                    dpg.apply_transform(node, translate * rotate)
+
+                    # Draw speed text
+                    # Calculate text position relative to the vehicle's tail
+                    text_position = (
+                        position[0] + vehicle.length * math.cos(heading),
+                        position[1] + vehicle.length * math.sin(heading)
+                    )
+                    # Optionally offset the text vertically so it doesn't overlap with the vehicle
+                    text_position = (text_position[0], text_position[1] + 2)
+
+                    # 绘制速度、加速度和ID的
+                    if self.show_speed:
+                        # 绘制速度
+                        dpg.draw_text(
+                            pos=text_position,
+                            text=f"V:{vehicle.v:.2f}",
+                            size=2 * self.zoom,
+                            color=(255, 255, 255),
+                            parent="Canvas"
+                        )
+
+                    if self.show_acceleration:
+                        # 计算并绘制加速度
+                        acceleration_position = (text_position[0], text_position[1] + 2)
+                        dpg.draw_text(
+                            pos=acceleration_position,
+                            text=f"A:{vehicle.a:.2f}",
+                            size=2 * self.zoom,
+                            color=(255, 255, 255),
+                            parent="Canvas"
+                        )
+
+                    if self.show_id:
+                        # 计算并绘制ID
+                        id_position = (text_position[0], text_position[1] + 4)
+                        dpg.draw_text(
+                            pos=id_position,
+                            text=f"ID:{vehicle.id}",
+                            size=2 * self.zoom,
+                            color=(255, 255, 255),
+                            parent="Canvas"
+                        )
+
+    def draw_tl(self):
+        """
+        绘制交通灯
+        """
+        for _, segment in self.simulation.segments.items():
+            segment_width = segment.num_lanes * segment.lane_width
+            if segment.has_traffic_signal:
+                # Get the last two points of the segment.
+                last_point = segment.points[-1]
+                second_last_point = segment.points[-2]
+
+                # Calculate the direction vector of the segment.
+                direction_vector = [
+                    last_point[0] - second_last_point[0],
+                    last_point[1] - second_last_point[1]
+                ]
+
+                # Calculate the perpendicular vector to the direction vector.
+                perpendicular_vector = [
+                    -direction_vector[1],  # Rotate by 90 degrees counterclockwise
+                    direction_vector[0]
+                ]
+
+                # Normalize the perpendicular vector.
+                length = math.sqrt(perpendicular_vector[0] ** 2 + perpendicular_vector[1] ** 2)
+                unit_perpendicular_vector = [
+                    perpendicular_vector[0] / length,
+                    perpendicular_vector[1] / length
+                ]
+                # Calculate the start and end points of the traffic light line.
+                traffic_light_start = [
+                    last_point[0] + unit_perpendicular_vector[0] * segment_width / 2,
+                    last_point[1] + unit_perpendicular_vector[1] * segment_width / 2
+                ]
+                traffic_light_end = [
+                    last_point[0] - unit_perpendicular_vector[0] * segment_width / 2,
+                    last_point[1] - unit_perpendicular_vector[1] * segment_width / 2
+                ]
+
+                with dpg.draw_node(parent="Canvas"):
+                    if segment.traffic_signal_state: #为绿灯
+                        dpg.draw_line(p1=traffic_light_start, p2=traffic_light_end, color=(0, 255, 0), thickness=0.5 * self.zoom)
+
+                    else: #为红灯
+                        dpg.draw_line(p1=traffic_light_start, p2=traffic_light_end, color=(255, 0, 0), thickness=0.5 * self.zoom)
 
     def apply_transformation(self):
         screen_center = dpg.create_translation_matrix([self.canvas_width / 2, self.canvas_height / 2, -0.01])
@@ -142,7 +345,6 @@ class Visualizer:
 
     def close_logo(self):
         dpg.delete_item("logo")
-
 
     def setup_themes(self):
         with dpg.theme() as global_theme:
@@ -180,6 +382,44 @@ class Visualizer:
     @property
     def canvas_height(self):
         return dpg.get_item_height("viz_port")
+
+    def mouse_down(self):
+        if not self.is_dragging:
+            if dpg.is_item_hovered("viz_port"):
+                self.is_dragging = True
+                self.old_offset = self.offset
+
+    def mouse_drag(self, sender, app_data):
+        if self.is_dragging:
+            self.offset = (
+                self.old_offset[0] + app_data[1]/self.zoom,
+                self.old_offset[1] + app_data[2]/self.zoom
+            )
+
+    def mouse_release(self):
+        self.is_dragging = False
+
+    def mouse_wheel(self, sender, app_data):
+        if dpg.is_item_hovered("viz_port"):
+            self.zoom_speed = 1 + 0.01*app_data
+
+    def update_inertial_zoom(self, clip=0.005):
+        if self.zoom_speed != 1:
+            self.zoom *= self.zoom_speed
+            self.zoom_speed = 1 + (self.zoom_speed - 1) / 1.05
+        if abs(self.zoom_speed - 1) < clip:
+            self.zoom_speed = 1
+
+    def set_speed(self):
+        self.speed = dpg.get_value("SpeedUp")
+
+    def slow_down(self):
+        self.delay = dpg.get_value("Delay")
+
+    # def initialize_highlighter(self):
+    #     # Assuming 'canvas_tag' is the ID of your canvas element
+    #     self.highlighter = SegmentHighlighter(self.simulation, self.zoom)
+    #     self.highlighter.attach_canvas_callback("Canvas")  # Replace "Canvas" with the actual tag of your canvas
 
 
 if __name__ == "__main__":

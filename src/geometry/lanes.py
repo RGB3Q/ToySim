@@ -1,15 +1,18 @@
 
 # coding: utf-8
 
-
+from collections import deque
 class Lane:
-    def __init__(self, lane_id: str, speed_limit: int, lane_width, lane_length):
+    def __init__(self, lane_index: int, lane_id: str, speed_limit: int, lane_width, lane_length):
+        self.lane_index = lane_index
         self.lane_id = lane_id
         self.speed_limit = speed_limit
         self.lane_width = lane_width
         self.lane_length = lane_length
 
         self.vehicles = []
+
+        self.index = None
 
         # self.allow_veh_type = None
 
@@ -27,8 +30,16 @@ class Lane:
 
     def remove_vehicle(self, vehicle):
         self.vehicles.remove(vehicle)
-        vehicle.lead.follow = vehicle.follow
-        vehicle.follow.lead = vehicle.lead
+        if vehicle.lead and vehicle.follow:
+            vehicle.lead.follow = vehicle.follow
+            vehicle.follow.lead = vehicle.lead
+            vehicle.follow = None
+        elif vehicle.lead and not vehicle.follow:
+            vehicle.lead.follow = None
+            vehicle.lead = None
+        elif not vehicle.lead and vehicle.follow:
+            vehicle.follow.lead = None
+
 
 
 
