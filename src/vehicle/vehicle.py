@@ -31,20 +31,24 @@ class Vehicle:
         # reaction time
         self.T = 1
 
-        self.length = 4
-        self.v_max = 16
-        self._v_max = 16
+        self.length = 5.3
+        self.v_max = 15
+        self._v_max = 15
 
         self.a_max = 1.5
-        self.b_max = 8
+        self.b_max = 9
 
         self.path = []
         self.current_road_index = 0
+        self.at_lane = 0
 
         self.x = 0
         self.v = 0
         self.a = 0
+
+        # possible status change due to traffic lights
         self.stopped = False
+        self.slowing_down = False
 
         self.sqrt_ab = 2 * np.sqrt(self.a_max * self.b_max)
 
@@ -125,22 +129,22 @@ class Vehicle:
         if target_lead:
             target_lead.follow = self
             self.lead = target_lead
-            insert_loc = target_lead.location_in_lane
+            insert_loc = target_lead.location_in_lane+1
         if target_follow:
             target_follow.lead = self
             self.follow = target_follow
         target_lane.vehicles.insert(insert_loc, self)
         self.at_lane = target_lane.lane_index
 
-    def perform_lane_change1(self, present_lane, target_lane):  # MoBIL模型判断是否换道
-        candidate_follow, candidate_lead = self.search_adjacent_lane(target_lane)
-        present_a = self.IDM(candidate_lead)  # 当前车道的加速度
-        target_a = self.IDM(candidate_lead)  # 目标车道的加速度
-        follow_a = candidate_follow.IDM(self)  # 目标车道后车的加速度
-
-        if target_a - present_a > 0.1 and follow_a > -4:
-            # 执行换道逻辑
-            self.change_lane_link_lst(present_lane, target_lane, follow, lead)
+    # def perform_lane_change1(self, present_lane, target_lane):  # MoBIL模型判断是否换道
+    #     candidate_follow, candidate_lead = self.search_adjacent_lane(target_lane)
+    #     present_a = self.IDM(candidate_lead)  # 当前车道的加速度
+    #     target_a = self.IDM(candidate_lead)  # 目标车道的加速度
+    #     follow_a = candidate_follow.IDM(self)  # 目标车道后车的加速度
+    #
+    #     if target_a - present_a > 0.1 and follow_a > -4:
+    #         # 执行换道逻辑
+    #         self.change_lane_link_lst(present_lane, target_lane, follow, lead)
 
     def search_adjacent_lane(self, target_lane: Lane):
         """
@@ -235,9 +239,11 @@ class Vehicle:
 
     def slow(self, v):
         self.v_max = v
+        self.slowing_down = True
 
     def unslow(self):
         self.v_max = self._v_max
+        self.slowing_down = False
 
 
 

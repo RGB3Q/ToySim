@@ -34,7 +34,7 @@ class Segment:
 
         self.lane_width = 3.5
 
-        self.ban_lane_change_distance = 12
+        self.ban_lane_change_distance = 18
 
         self.create_lanes()
 

@@ -31,9 +31,11 @@ class Visualizer:
         self.create_handlers()
         self.setup_themes()
 
-        self.show_speed = False
-        self.show_acceleration = False
-        self.show_id = False
+        self.show_speed = True
+        self.show_acceleration = True
+        self.show_id = True
+
+        self.show_status_color = False
 
         # 实例化SegmentHighlighter
         # self.initialize_highlighter()
@@ -94,11 +96,13 @@ class Visualizer:
         # with dpg.window(tag="logo", label="logo", width=300, height=300, no_resize=False, no_move=False, no_title_bar=False, no_background=True):
         #     dpg.add_image(self.logo)
         if not hasattr(self, 'show_speed'):
-            self.show_speed = False
+            self.show_speed = True
         if not hasattr(self, 'show_acceleration'):
-            self.show_acceleration = False
+            self.show_acceleration = True
         if not hasattr(self, 'show_id'):
-            self.show_id = False
+            self.show_id = True
+        if not hasattr(self, 'show_status_color'):
+            self.show_status_color = False
         with dpg.window(label="Vehicle Info",pos=[0,180],width=250, height=120, no_close=True, no_collapse=True, no_resize=True, no_move=False):
             dpg.add_checkbox(label="Show Speed", default_value=self.show_speed,
                              callback=lambda sender, app_data: setattr(self, 'show_speed', app_data))
@@ -106,6 +110,8 @@ class Visualizer:
                              callback=lambda sender, app_data: setattr(self, 'show_acceleration', app_data))
             dpg.add_checkbox(label="Show ID", default_value=self.show_id,
                              callback=lambda sender, app_data: setattr(self, 'show_id', app_data))
+            dpg.add_checkbox(label="Show status", default_value=self.show_status_color,
+                             callback=lambda sender, app_data: setattr(self, 'show_status_color', app_data))
 
     def create_handlers(self):
         with dpg.handler_registry():
@@ -174,7 +180,7 @@ class Visualizer:
         for _, segment in self.simulation.segments.items():
             segment_width = segment.num_lanes * segment.lane_width
             dpg.draw_polyline(segment.points,
-                              color=(180, 180, 220),
+                              color=(180, 180, 220, 10),
                               thickness=segment_width * self.zoom,
                               parent="Canvas",
                               )
@@ -237,13 +243,41 @@ class Visualizer:
                     position_at_lane = offset_position(position, heading, segment.lane_width, offset_num)
 
                     node = dpg.add_draw_node(parent="Canvas")
-                    dpg.draw_line(
-                        (0, 0),
-                        (vehicle.length, 0),
-                        thickness=1.76 * self.zoom,
-                        color=(0, 0, 200),
-                        parent=node
-                    )
+                    if not self.show_status_color:
+                        dpg.draw_line(
+                            (0, 0),
+                            (vehicle.length, 0),
+                            thickness=1.76 * self.zoom,
+                            color=(0, 0, 200,127),
+                            parent=node,
+
+                        )
+                    elif self.show_status_color:
+                        if vehicle.stopped:
+                            dpg.draw_line(
+                                (0, 0),
+                                (vehicle.length, 0),
+                                thickness=1.76 * self.zoom,
+                                color=(255, 0, 0),
+                                parent=node
+                            )
+                        elif vehicle.slowing_down:
+                            dpg.draw_line(
+                                (0, 0),
+                                (vehicle.length, 0),
+                                thickness=1.76 * self.zoom,
+                                color=(0, 255, 0),
+                                parent=node
+                            )
+                            print('slowing down color change: %s' % vehicle.id)
+                        else:
+                            dpg.draw_line(
+                                (0, 0),
+                                (vehicle.length, 0),
+                                thickness=1.76 * self.zoom,
+                                color=(0, 0, 200),
+                                parent=node
+                            )
 
                     translate = dpg.create_translation_matrix(position_at_lane)
                     rotate = dpg.create_rotation_matrix(heading, [0, 0, 1])
@@ -252,8 +286,8 @@ class Visualizer:
                     # Draw speed text
                     # Calculate text position relative to the vehicle's tail
                     text_position = (
-                        position[0] + vehicle.length * math.cos(heading),
-                        position[1] + vehicle.length * math.sin(heading)
+                        position_at_lane[0] + vehicle.length * math.cos(heading),
+                        position_at_lane[1] + vehicle.length * math.sin(heading)
                     )
                     # Optionally offset the text vertically so it doesn't overlap with the vehicle
                     text_position = (text_position[0], text_position[1] + 2)
@@ -268,6 +302,8 @@ class Visualizer:
                             color=(255, 255, 255),
                             parent="Canvas"
                         )
+                        new_pos = (text_position[0]+7, text_position[1])
+                        dpg.draw_text(pos=new_pos,text=f"at:{str(lane.lane_id)+' '+str(vehicle.x)}",size=2 * self.zoom,color=(255, 255, 255),parent="Canvas")
 
                     if self.show_acceleration:
                         # 计算并绘制加速度
@@ -414,7 +450,8 @@ class Visualizer:
         self.speed = dpg.get_value("SpeedUp")
 
     def slow_down(self):
-        self.delay = dpg.get_value("Delay")
+        delay = dpg.get_value("Delay")
+        self.delay = int(delay)
 
     # def initialize_highlighter(self):
     #     # Assuming 'canvas_tag' is the ID of your canvas element

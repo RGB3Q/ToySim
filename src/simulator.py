@@ -130,35 +130,32 @@ class Simulation:
     def update_with_lane(self, delay:int):
         # Update vehicles
         for segment in self.segments.values():
-            for lane in segment.lanes:
-                # get adjacent lanes
-                if lane.lane_index - 1 < 0 and lane.lane_index+1 >= len(segment.lanes):
-                    adjacent_lanes = [lane, None, None]
-                elif lane.lane_index - 1 < 0 and lane.lane_index+1 < len(segment.lanes):
-                    adjacent_lanes = [lane, None, segment.lanes[lane.lane_index+1]]
-                elif lane.lane_index - 1 >= 0 and lane.lane_index+1 >= len(segment.lanes):
-                    adjacent_lanes = [lane, segment.lanes[lane.lane_index-1], None]
-                else:
-                    adjacent_lanes = [lane, segment.lanes[lane.lane_index-1], segment.lanes[lane.lane_index+1]]
+            for lane_index, lane in enumerate(segment.lanes):
+                adjacent_lanes = [
+                    lane,
+                    segment.lanes[lane_index - 1] if lane_index > 0 else None,
+                    segment.lanes[lane_index + 1] if lane_index + 1 < len(segment.lanes) else None
+                ]
 
                 # update vehicles on each lane
                 if len(lane.vehicles) != 0:
-                    head_veh = lane.vehicles[0]
+                    head_veh: Vehicle = lane.vehicles[0]
                     # segment.update()
                     if segment.traffic_signal_state:
-                        # If traffic signal is green or doesn't exist
-                        # Then let vehicles pass
+                        # If traffic signal is green or doesn't exist, Then let vehicles pass
                         head_veh.unstop()
-                        for vehicle_id in lane.vehicles:
-                            head_veh.unslow()
+                        head_veh.unslow()
                     else:
                         # If traffic signal is red
                         if head_veh.x >= segment.length - segment.traffic_signal.slow_distance:
                             # Slow vehicles in slowing zone
-                            head_veh.slow(segment.traffic_signal.slow_speed)
+                            if not head_veh.slowing_down:
+                                head_veh.slow(segment.traffic_signal.slow_speed)
+                            # print("slowing down: %s  %.2f" % (head_veh.id, head_veh.x), head_veh.slowing_down)
                         if segment.length - segment.traffic_signal.stop_distance <= \
                                 head_veh.x <= segment.length - segment.traffic_signal.stop_distance / 2:
-                            head_veh.stop()
+                            if not head_veh.stopped:
+                                head_veh.stop()
                     head_veh.IDM(None, self.dt)
                     if not head_veh.x > segment.length - segment.ban_lane_change_distance:
                         head_veh.evaluate_and_perform_lane_change(adjacent_lanes)
@@ -170,8 +167,7 @@ class Simulation:
                         if not veh.x > segment.length - segment.ban_lane_change_distance:
                             veh.evaluate_and_perform_lane_change(adjacent_lanes)
 
-        # Check roads for out of bounds vehicle
-        for segment in self.segments.values():
+            # Check roads for out of bounds vehicle
             for lane in segment.lanes:
                 # If seg has no vehicles, continue
                 if len(lane.vehicles) == 0:
@@ -186,15 +182,16 @@ class Simulation:
                         vehicle.current_road_index += 1
                         # Add it to the next road
                         next_road_id = vehicle.path[vehicle.current_road_index]
-
-                        self.segments[next_road_id].lanes[0].add_vehicle(vehicle)
-                    # Reset vehicle properties
-                    vehicle.x = 0
-                    # In all cases, remove it from its road
-                    lane.vehicles.remove(vehicle)
+                        self.segments[next_road_id].lanes[vehicle.at_lane].add_vehicle(vehicle)
+                        # In all cases, remove it from its road
+                        lane.vehicles.remove(vehicle)
+                        # Reset vehicle properties
+                        vehicle.x = 0
+                    else:
+                        lane.vehicles.remove(vehicle)
 
         # Update traffic lights
-        for sigal_id, signal in self.traffic_signals.items():
+        for signal_id, signal in self.traffic_signals.items():
             signal.update(self)
 
         # Update vehicle generators
@@ -203,4 +200,4 @@ class Simulation:
         # Increment time
         self.t += self.dt
         self.frame_count += 1
-        time.sleep(delay//100)
+        # time.sleep(delay/100)
