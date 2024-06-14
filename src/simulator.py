@@ -142,7 +142,7 @@ class Simulation:
                     head_veh: Vehicle = lane.vehicles[0]
                     # segment.update()
                     if segment.traffic_signal_state:
-                        # If traffic signal is green or doesn't exist, Then let vehicles pass
+                        # If TRUE: traffic signal is green or doesn't exist, Then let vehicles pass
                         head_veh.unstop()
                         head_veh.unslow()
                     else:
@@ -156,16 +156,24 @@ class Simulation:
                                 head_veh.x <= segment.length - segment.traffic_signal.stop_distance / 2:
                             if not head_veh.stopped:
                                 head_veh.stop()
-                    head_veh.IDM(None, self.dt)
+                    head_veh.present_a = head_veh.IDM(None, self.dt)  # 计算假使保持在当前车道上的加速度
                     if not head_veh.x > segment.length - segment.ban_lane_change_distance:
-                        head_veh.evaluate_and_perform_lane_change(adjacent_lanes)
+                        head_veh.a = head_veh.evaluate_and_perform_lane_change(adjacent_lanes)
+                        head_veh.update_position_and_velocity()
+                    else:
+                        head_veh.a = head_veh.present_a
+                        head_veh.update_position_and_velocity()
 
                 # update vehicles using IDM and MOBIL
                 if len(lane.vehicles) > 1:
                     for veh in lane.vehicles[1:]:
-                        veh.IDM(veh.lead, self.dt)
+                        veh.present_a = veh.IDM(veh.lead, self.dt)
                         if not veh.x > segment.length - segment.ban_lane_change_distance:
-                            veh.evaluate_and_perform_lane_change(adjacent_lanes)
+                            veh.a = veh.evaluate_and_perform_lane_change(adjacent_lanes)
+                            veh.update_position_and_velocity()
+                        else:
+                            veh.a = veh.present_a
+                            veh.update_position_and_velocity()
 
             # Check roads for out of bounds vehicle
             for lane in segment.lanes:

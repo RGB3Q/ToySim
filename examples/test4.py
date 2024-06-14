@@ -5,8 +5,8 @@ from src.signal.SignalGroup import TrafficSignal
 
 sim = ts.Simulation()
 
-lane_space = 3.5
-intersection_size = 30
+lane_space = 3
+intersection_size = 36
 length = 100
 
 # SOUTH, EAST, NORTH, WEST

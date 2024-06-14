@@ -269,7 +269,7 @@ class Visualizer:
                                 color=(0, 255, 0),
                                 parent=node
                             )
-                            print('slowing down color change: %s' % vehicle.id)
+                            # print('slowing down color change: %s' % vehicle.id)
                         else:
                             dpg.draw_line(
                                 (0, 0),

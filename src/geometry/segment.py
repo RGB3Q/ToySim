@@ -32,17 +32,11 @@ class Segment:
         # number of lanes
         self.num_lanes = num_lanes
 
-        self.lane_width = 3.5
+        self.lane_width = 3
 
         self.ban_lane_change_distance = 18
 
         self.create_lanes()
-
-    def add_vehicle(self, vehicle):
-        self.vehicles.append(vehicle.id)
-
-    def remove_vehicle(self, vehicle):
-        self.vehicles.remove(vehicle.id)
 
     def get_vehicles(self):
         return self.vehicles
@@ -119,7 +113,7 @@ class Segment:
             integ = f(mid_point)
         return mid_point
 
-    def find_normalized_path(self, CURVE_RESOLUTION=50):
+    def find_normalized_path(self, CURVE_RESOLUTION=20):
         normalized_path = [(self.compute_x(0), self.compute_y(0))]
         l = self.get_length()
         target_l = l / (CURVE_RESOLUTION - 1)
@@ -158,12 +152,4 @@ class Segment:
             lane_width = self.lane_width
             lane_length = self.length
             self.lanes.append(Lane(lane_index, lane_id, speed_limit, lane_width, lane_length))
-
-
-
-
-
-
-
-
 
