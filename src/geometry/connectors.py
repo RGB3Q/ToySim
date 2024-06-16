@@ -18,6 +18,8 @@ class Connector:
         self.connections = {}
         self.create_connections()
 
+        self.is_available = True
+
     def create_connections(self):
         """
         create connections between upstream and downstream
@@ -27,7 +29,7 @@ class Connector:
             connection_id = info[0]
             if not connection_id in self.connections:
                 self.connections[connection_id] = {}
-            for i in range(1, len(info)):
+            for i in range(len(info)):
                 segment_id = info[i]
                 if not segment_id in self.connections[connection_id]:
                     self.connections[connection_id][segment_id] = []

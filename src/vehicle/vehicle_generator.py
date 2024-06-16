@@ -11,6 +11,13 @@ class VehicleGenerator:
         for attr, val in config.items():
             setattr(self, attr, val)
 
+        # Additional configurations
+        self.length = None
+        self.a_max = None
+        self.s_safe = None
+        self.v_max = None
+        self.b_max = None
+
         # Calculate properties
         self.init_properties()
 
@@ -27,6 +34,13 @@ class VehicleGenerator:
 
     def generate_vehicle(self):
         """Returns a random vehicle from self.vehicles with random proportions"""
+        config = {
+            'length': self.length,
+            'a_max': self.a_max,
+            's_safe': self.s_safe,
+            'v_max': self.v_max,
+            'b_max': self.b_max,
+        }
         total = sum(pair[0] for pair in self.vehicles)
         r = randint(1, total+1)
         for (weight, config) in self.vehicles:

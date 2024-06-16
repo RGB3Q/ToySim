@@ -48,6 +48,7 @@ vg = VehicleGenerator({
         (1, {'path': ['0', '12', '5'], 'v': 12})
         ]
     })
+
 sim.add_vehicle_generator(vg)
 
 sg = TrafficSignal('1', [[sim.segments['0'], sim.segments['2']], [sim.segments['1'], sim.segments['3']]])

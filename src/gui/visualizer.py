@@ -5,6 +5,7 @@ import os
 import math
 from src.gui.segment_highlighter import SegmentHighlighter
 import numpy as np
+from src.gui.veh_gen_control import VehicleGeneratorControl
 
 # Get the absolute path to the image
 image_path = os.path.join(os.path.dirname(__file__), "logo_1.png")
@@ -28,6 +29,7 @@ class Visualizer:
 
         self.setup()
         self.create_windows()
+        self.create_veh_gen_control_window()
         self.create_handlers()
         self.setup_themes()
 
@@ -52,6 +54,9 @@ class Visualizer:
         with dpg.texture_registry():
             self.logo = dpg.add_static_texture(width, height, data, tag="logo_compressed")
 
+    def create_veh_gen_control_window(self):
+        veh_gen_control_window = VehicleGeneratorControl(self.simulation.vehicle_generator)
+
     def create_windows(self):
         # create main window to display simulation
         dpg.add_window(tag='viz_port',
@@ -61,18 +66,22 @@ class Visualizer:
                        no_close=True,
                        pos=(250, 0),
                        no_background=True,
-                       no_collapse=False)
+                       no_collapse=True,
+                       no_title_bar=True,
+                       no_move=True)
 
         dpg.add_draw_node(tag="OverlayCanvas", parent="viz_port")
         dpg.add_draw_node(tag="Canvas", parent="viz_port")
 
-        with dpg.window(tag="SimControl", label="sim_control", no_close=True, no_collapse=True, width=250, no_resize=True, no_move=True):
+        with dpg.window(tag="SimControl", label="SimControl", no_close=True, no_collapse=True, width=250, height=190,
+                        no_resize=True, no_move=True, no_scrollbar=True,):
 
             with dpg.group(horizontal=True):
                 dpg.add_button(label="Run", tag="RunStopButton", callback=self.toggle, width=60)
                 dpg.add_button(label="Step", tag="StepButton", callback=self.simulation.update_with_lane, width=60)
 
-            dpg.add_slider_int(tag="SpeedUp", label=">> Speed Up", width=150,min_value=1, max_value=100, default_value=1,
+            dpg.add_slider_int(tag="SpeedUp", label=">> Speed Up", width=150, min_value=1, max_value=100,
+                               default_value=1,
                                callback=self.set_speed)
             dpg.add_slider_int(tag="Delay", label=">> Delay", width=150, min_value=10, max_value=200,
                                default_value=0,
@@ -103,7 +112,7 @@ class Visualizer:
             self.show_id = True
         if not hasattr(self, 'show_status_color'):
             self.show_status_color = False
-        with dpg.window(label="Vehicle Info",pos=[0,180],width=250, height=120, no_close=True, no_collapse=True, no_resize=True, no_move=False):
+        with dpg.window(label="Vehicle Info", pos=[0, 190], width=250, height=130, no_close=True, no_collapse=True, no_resize=True, no_move=True):
             dpg.add_checkbox(label="Show Speed", default_value=self.show_speed,
                              callback=lambda sender, app_data: setattr(self, 'show_speed', app_data))
             dpg.add_checkbox(label="Show Acceleration", default_value=self.show_acceleration,
@@ -166,6 +175,8 @@ class Visualizer:
         self.draw_vehicles()
 
         self.draw_tl()
+        self.draw_grid(10)
+        self.draw_grid(50)
 
         # Apply transformations
         self.apply_transformation()
@@ -411,6 +422,11 @@ class Visualizer:
                 dpg.add_theme_color(dpg.mvThemeCol_ButtonHovered, (207, 12, 23))
                 dpg.add_theme_color(dpg.mvThemeCol_ButtonActive, (120, 2, 10))
 
+        with dpg.font_registry():
+            # first argument ids the path to the .ttf or .otf file
+            default_font = dpg.add_font("../fonts/pingfang.otf", 16)
+            dpg.bind_font(default_font)
+
     @property
     def canvas_width(self):
         return dpg.get_item_width("viz_port")
@@ -453,6 +469,45 @@ class Visualizer:
         delay = dpg.get_value("Delay")
         self.delay = int(delay)
 
+    def draw_grid(self, unit=10, opacity=10):
+        color = (255, 255, 255, opacity)
+        x_start, y_start = self.to_world(0, 0)
+        x_end, y_end = self.to_world(self.canvas_width, self.canvas_height)
+
+        n_x = int(x_start / unit)
+        n_y = int(y_start / unit)
+        m_x = int(x_end / unit)+1
+        m_y = int(y_end / unit)+1
+
+        for i in range(n_x, m_x):
+            dpg.draw_line(
+                self.to_screen(unit*i, y_start - 10/self.zoom),
+                self.to_screen(unit*i, y_end + 10/self.zoom),
+                thickness=1,
+                color=color,
+                parent="OverlayCanvas"
+            )
+
+        for i in range(n_y, m_y):
+            dpg.draw_line(
+                self.to_screen(x_start - 10/self.zoom, unit*i),
+                self.to_screen(x_end + 10/self.zoom, unit*i),
+                thickness=1,
+                color=color,
+                parent="OverlayCanvas"
+            )
+
+    def to_screen(self, x, y):
+        return (
+            self.canvas_width/2 + (x + self.offset[0] ) * self.zoom,
+            self.canvas_height/2 + (y + self.offset[1]) * self.zoom
+        )
+
+    def to_world(self, x, y):
+        return (
+            (x - self.canvas_width/2) / self.zoom - self.offset[0],
+            (y - self.canvas_height/2) / self.zoom - self.offset[1]
+        )
     # def initialize_highlighter(self):
     #     # Assuming 'canvas_tag' is the ID of your canvas element
     #     self.highlighter = SegmentHighlighter(self.simulation, self.zoom)
