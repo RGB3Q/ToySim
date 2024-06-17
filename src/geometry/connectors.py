@@ -4,8 +4,9 @@ from scipy.interpolate import interp1d
 from src.geometry.segment import Segment
 
 
-class Connector:
-    def __init__(self, id: str, points, from_segment: str, to_segment: str, connect_info: [list], ):
+class Connector(Segment, ABC):
+    def __init__(self, id: str, points, from_segment: str, to_segment: str, connect_info: [list], num_lanes):
+        super().__init__(id, points, num_lanes)
         self.id = id
         self.points = points
         self.from_segment = from_segment
@@ -22,20 +23,17 @@ class Connector:
 
     def create_connections(self):
         """
-        create connections between upstream and downstream
+        create connections between upstream and downstream segments
         :return:
         """
         for info in self.connect_info:
             connection_id = info[0]
             if not connection_id in self.connections:
-                self.connections[connection_id] = {}
-            for i in range(len(info)):
-                segment_id = info[i]
-                if not segment_id in self.connections[connection_id]:
-                    self.connections[connection_id][segment_id] = []
-                self.connections[connection_id][segment_id].append(self)
-            if not connection_id in self.connections:
-                self.connections[connection_id] =
+                self.connections[connection_id] = [info[1]]
+            else:
+                self.connections[connection_id].append(info[1])
+
+
 
 
 

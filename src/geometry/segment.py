@@ -12,6 +12,7 @@ from src.geometry.lanes import Lane
 # define a class for a road segment for micro simulation
 class Segment:
     def __init__(self, id: str, points, num_lanes):
+        self.get_heading = None
         self.speed_limit = None
         self.lanes = []
         self.id = id
