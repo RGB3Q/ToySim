@@ -30,15 +30,15 @@ class Lane:
 
     def remove_vehicle(self, vehicle):
         self.vehicles.remove(vehicle)
-        if vehicle.lead and vehicle.follow:
+
+        if vehicle.lead:
             vehicle.lead.follow = vehicle.follow
+        if vehicle.follow:
             vehicle.follow.lead = vehicle.lead
-            vehicle.follow = None
-        elif vehicle.lead and not vehicle.follow:
-            vehicle.lead.follow = None
-            vehicle.lead = None
-        elif not vehicle.lead and vehicle.follow:
-            vehicle.follow.lead = None
+
+        # 清除当前车辆与前后车辆的关联
+        vehicle.lead = None
+        vehicle.follow = None
 
 
 

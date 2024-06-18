@@ -4,20 +4,23 @@ from src.vehicle.vehicle_generator import VehicleGenerator
 from src.geometry.quadratic_curve import QuadraticCurve
 from src.geometry.cubic_curve import CubicCurve
 from src.geometry.segment import Segment
+from src.geometry.connectors import Connector
 from src.vehicle.vehicle import Vehicle
 from src.signal.SignalGroup import TrafficSignal
+import random
 
 
 class Simulation:
 
     def __init__(self):
         self.segments = {}
+        self.connectors = {}
         self.vehicles = {}
         self.vehicle_generator = []
 
         self.t = 0.0
         self.frame_count = 0
-        self.dt = 1/60
+        self.dt = 1 / 60
         self.traffic_signals = {}
 
         # self.lanes = {}
@@ -33,6 +36,9 @@ class Simulation:
     def add_segment(self, seg):
         self.segments.update({seg.id: seg})
 
+    def add_connector(self, connector: Connector):
+        self.connectors.update({connector.id: connector})
+
     def add_vehicle_generator(self, gen):
         self.vehicle_generator.append(gen)
 
@@ -43,6 +49,10 @@ class Simulation:
     def create_segment(self, *args):
         seg = Segment(*args)
         self.add_segment(seg)
+
+    def create_connector(self, *args):
+        connector = Connector(*args)
+        self.add_connector(connector)
 
     def create_quadratic_bezier_curve(self, id, points, lanes):
         cur = QuadraticCurve(id, points, lanes)
@@ -66,7 +76,8 @@ class Simulation:
         for _ in range(steps):
             self.update_with_lane(delay)
 
-    def update(self):
+    # update_without_lane未加入换道逻辑，已弃用
+    def update_without_lane(self):
         # Update vehicles
         for segment in self.segments.values():
             if len(segment.vehicles) != 0:
@@ -85,8 +96,8 @@ class Simulation:
                         self.vehicles[head_veh_id].slow(segment.traffic_signal.slow_speed)
                     if segment.length - segment.traffic_signal.stop_distance <= \
                             self.vehicles[head_veh_id].x <= segment.length - segment.traffic_signal.stop_distance / 2:
-                    # if self.vehicles[head_veh_id].x >= segment.length - segment.traffic_signal.stop_distance and \
-                    #         self.vehicles[head_veh_id].x <= segment.length - segment.traffic_signal.stop_distance / 2:
+                        # if self.vehicles[head_veh_id].x >= segment.length - segment.traffic_signal.stop_distance and \
+                        #         self.vehicles[head_veh_id].x <= segment.length - segment.traffic_signal.stop_distance / 2:
                         # Stop vehicles in the stop zone
                         self.vehicles[head_veh_id].stop()
                 self.vehicles[head_veh_id].IDM(None, self.dt)
@@ -127,7 +138,7 @@ class Simulation:
         self.t += self.dt
         self.frame_count += 1
 
-    def update_with_lane(self, delay:int):
+    def update_with_lane(self, delay: int):
         # Update vehicles
         for segment in self.segments.values():
             for lane_index, lane in enumerate(segment.lanes):
@@ -175,7 +186,7 @@ class Simulation:
                             veh.a = veh.present_a
                             veh.update_position_and_velocity()
 
-            # Check roads for out of bounds vehicle
+            # Check segment for out of bounds vehicle, perform segment->connector transfer
             for lane in segment.lanes:
                 # If seg has no vehicles, continue
                 if len(lane.vehicles) == 0:
@@ -187,16 +198,50 @@ class Simulation:
                     # If vehicle has a next road
                     if vehicle.current_road_index + 1 < len(vehicle.path):
                         # Update current road to next road
-                        vehicle.current_road_index += 1
+                        # vehicle.current_road_index += 1
                         # Add it to the next road
-                        next_road_id = vehicle.path[vehicle.current_road_index]
-                        self.segments[next_road_id].lanes[vehicle.at_lane].add_vehicle(vehicle)
-                        # In all cases, remove it from its road
+                        # next_road_id = vehicle.path[vehicle.current_road_index]
+                        next_connector_index = vehicle.path[vehicle.current_road_index] + "_" + \
+                                               vehicle.path[vehicle.current_road_index + 1]
+                        next_connector: Connector = self.connectors[next_connector_index]
+                        if next_connector.is_available:
+                            from_lane = next_connector.get_closest_lane(vehicle.at_lane)
+                            to_lane_candidates = next_connector.connections[from_lane]
+                            # 选取连接器链接的下游路段lane
+                            vehicle.to_lane = random.choice(list(to_lane_candidates.keys()))
+                            obj_connect = to_lane_candidates[vehicle.to_lane]
+                            next_connector.add_vehicle(vehicle, from_lane, vehicle.to_lane)
+
+                        # self.segments[next_road_id].lanes[vehicle.at_lane].add_vehicle(vehicle)
+                        # remove it from its road
                         lane.vehicles.remove(vehicle)
                         # Reset vehicle properties
                         vehicle.x = 0
                     else:
                         lane.vehicles.remove(vehicle)
+
+        for connector in self.connectors.values():
+            for from_lane, to_lane_dic in connector.connections.items():
+                for to_lane, d_que in to_lane_dic.items():
+                    if len(d_que) == 0:
+                        continue
+                    # Check connectors for out of bounds vehicle, perform connector->segment transfer
+                    head_veh = d_que[0]
+                    head_veh.a = head_veh.IDM(None, self.dt)
+                    head_veh.update_position_and_velocity()
+                    if len(d_que) > 1:
+                        i = 0
+                        for veh in d_que:
+                            if i == 0:
+                                i += 1
+                                continue
+                            veh.a = veh.IDM(veh.lead, self.dt)
+                            veh.update_position_and_velocity()
+
+                    if head_veh.x > connector.length:
+                        connector.remove_vehicle(head_veh, from_lane, to_lane)
+                        self.segments[connector.to_segment].lanes[int(to_lane)].add_vehicle(head_veh)
+                        head_veh.x = 0
 
         # Update traffic lights
         for signal_id, signal in self.traffic_signals.items():

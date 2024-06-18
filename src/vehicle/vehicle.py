@@ -23,6 +23,9 @@ class Vehicle:
         # 这个值可以根据需要调整，0表示完全自私，1表示完全利他
         self.politeness = 0.5
 
+        # 通过连接器进入下一个路段的lane_id
+        self.to_lane = None
+
     def set_default_config(self):
         self.id = uuid.uuid4()
 
@@ -148,16 +151,6 @@ class Vehicle:
             self.follow = target_follow
         target_lane.vehicles.insert(insert_loc, self)
         self.at_lane = target_lane.lane_index
-
-    # def perform_lane_change1(self, present_lane, target_lane):  # MoBIL模型判断是否换道
-    #     candidate_follow, candidate_lead = self.search_adjacent_lane(target_lane)
-    #     present_a = self.IDM(candidate_lead)  # 当前车道的加速度
-    #     target_a = self.IDM(candidate_lead)  # 目标车道的加速度
-    #     follow_a = candidate_follow.IDM(self)  # 目标车道后车的加速度
-    #
-    #     if target_a - present_a > 0.1 and follow_a > -4:
-    #         # 执行换道逻辑
-    #         self.change_lane_link_lst(present_lane, target_lane, follow, lead)
 
     def search_adjacent_lane(self, target_lane: Lane):
         """
