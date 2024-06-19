@@ -13,18 +13,18 @@ class QuadraticCurve(Segment):
         self.end = points[2]
 
         # Generate path
-        path = []
-        for i in range(CURVE_RESOLUTION):
-            t = i/(CURVE_RESOLUTION-1)
-            x = t**2*self.end[0] + 2*t*(1-t)*self.control[0] + (1-t)**2*self.start[0]
-            y = t**2*self.end[1] + 2*t*(1-t)*self.control[1] + (1-t)**2*self.start[1]
-            path.append((x, y))
+        # path = []
+        # for i in range(CURVE_RESOLUTION):
+        #     t = i/(CURVE_RESOLUTION-1)
+        #     x = t**2*self.end[0] + 2*t*(1-t)*self.control[0] + (1-t)**2*self.start[0]
+        #     y = t**2*self.end[1] + 2*t*(1-t)*self.control[1] + (1-t)**2*self.start[1]
+        #     path.append((x, y))
 
-        super().__init__(id, path, num_lanes)
+        super().__init__(id, points, num_lanes)
 
         # Arc-length parametrization
         normalized_path = self.find_normalized_path(CURVE_RESOLUTION)
-        super().__init__(id, normalized_path, num_lanes)
+        self.points = normalized_path
 
     def compute_x(self, t):
         return t**2*self.end[0] + 2*t*(1-t)*self.control[0] + (1-t)**2*self.start[0]

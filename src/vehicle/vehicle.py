@@ -114,8 +114,10 @@ class Vehicle:
 
             if left_incentive > right_incentive and left_incentive > 0:
                 self.implement_lane_change(lanes[0], lanes[1], l_leader, l_follower)
+                if l_leader and l_leader.x - self.x < 2.5:
+                    print(self.id, "left", l_leader.id, self.x, l_leader.x, l_follower.x, left_incentive, target_a_l)
                 return target_a_l
-            elif right_incentive > left_incentive and right_incentive > 0:
+            elif right_incentive > left_incentive and right_incentive > 0.2:  # Add bias to right side
                 self.implement_lane_change(lanes[0], lanes[2], r_leader, r_follower)
                 return target_a_r
         # 仅存在左侧车道
@@ -127,7 +129,7 @@ class Vehicle:
         # 仅存在右侧车道
         elif lanes[2]:
             right_incentive, r_leader, r_follower, target_a_r = self.calculate_incentive(lanes[2])
-            if right_incentive > 0:
+            if right_incentive > 0.2:  # Add bias to right side
                 self.implement_lane_change(lanes[0], lanes[2], r_leader, r_follower)
                 return target_a_r
         return self.present_a
@@ -183,8 +185,12 @@ class Vehicle:
         # 计算换道后可能的加速度
         target_leader, target_follower = self.search_adjacent_lane(target_lane)
         if target_leader and target_follower:
+            if target_leader.x - self.x < self.length+1:
+                return -1000, target_leader, target_follower, 0
             target_a = self.IDM(target_leader, self.dt)  # 目标车道的加速度
             follow_a_latent = target_follower.IDM(self, self.dt)  # 换道后目标车道后车的加速度
+            if follow_a_latent <= -4:
+                follow_a_latent = -100
             follow_a = target_follower.IDM(target_leader, self.dt)  # 不换道目标车道后车的加速度
 
             # 计算换道后的自身优势（换道后的加速度 - 换道前的加速度）
@@ -193,6 +199,8 @@ class Vehicle:
             # 假设target_vehicle的后车是目标车道上换道后紧随当前车辆的车辆
             follower_disadvantage = follow_a_latent - follow_a
         elif target_leader and not target_follower:
+            if target_leader.x - self.x < self.length+1:
+                return -1000, target_leader, target_follower, 0
             target_a = self.IDM(target_leader, self.dt)  # 目标车道的加速度
             # 计算换道后的自身优势（换道后的加速度 - 换道前的加速度
             self_advantage = target_a - self.present_a
@@ -204,6 +212,8 @@ class Vehicle:
             target_a = self.IDM(None, self.dt)  # 目标车道的加速度
             follow_a_latent = target_follower.IDM(self, self.dt)  # 换道后目标车道后车的加速度
             follow_a = target_follower.IDM(target_leader, self.dt)  # 不换道目标车道后车的加速度
+            if follow_a_latent <= -4:
+                follow_a_latent = -100
 
             self_advantage = target_a - self.present_a
             follower_disadvantage = follow_a_latent - follow_a
@@ -216,7 +226,7 @@ class Vehicle:
         # 计算激励标准
         # 如果自身优势大于礼貌因子乘以对后方车辆的不利影响，则激励换道
         incentive = self_advantage - self.politeness * follower_disadvantage - 0.2
-        if follow_a_latent < -4:
+        if follow_a_latent <= -4:
             incentive = -1000
 
         return incentive, target_leader, target_follower, target_a

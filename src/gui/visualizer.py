@@ -12,6 +12,23 @@ image_path = os.path.join(os.path.dirname(__file__), "logo_1.png")
 icon_path = os.path.join(os.path.dirname(__file__), "logo_icon256.ico")
 
 
+def offset_position(position, heading, lane_width, offset_multiplier):
+    """
+    结合当前所在车道偏移车辆的位置,默认向右偏移为正
+    :param position: 原始位置，一个包含x和y坐标的元组 (x, y)
+    :param heading: 车辆前进方向，以弧度为单位
+    :param lane_width: 车道宽度，用于偏移的固定量
+    :param offset_multiplier: 偏移的倍数，正数为向右偏移，负数为向左偏移
+    :return: 偏移后的新位置 (x, y)
+    """
+    dx = -lane_width * math.sin(heading)
+    dy = lane_width * math.cos(heading)
+    # 应用偏移
+    new_x = position[0] + offset_multiplier * dx
+    new_y = position[1] + offset_multiplier * dy
+    return new_x, new_y
+
+
 class Visualizer:
     def __init__(self, simulation):
         print("Initializing Visualizer...")
@@ -174,7 +191,7 @@ class Visualizer:
         dpg.delete_item("Canvas", children_only=True)
 
         self.draw_segments()
-        # self.draw_connectors()
+        self.draw_connectors()
         # print('drawing vehicles at segment')
         self.draw_vehicles()
         # print('drawing vehicles at connections')
@@ -189,7 +206,7 @@ class Visualizer:
 
         # Update panels
         self.update_panels()
-        print('continue simulation')
+
         if self.is_running:
             self.simulation.run(self.speed, self.delay)
 
@@ -241,22 +258,6 @@ class Visualizer:
             # dpg.draw_arrow(segment.points[-1], segment.points[-2], thickness=0, size=1, color=(0, 0, 0, 50), parent="Canvas")
 
     def draw_vehicles(self):
-        def offset_position(position, heading, lane_width, offset_multiplier):
-            """
-            结合当前所在车道偏移车辆的位置,默认向右偏移为正
-            :param position: 原始位置，一个包含x和y坐标的元组 (x, y)
-            :param heading: 车辆前进方向，以弧度为单位
-            :param lane_width: 车道宽度，用于偏移的固定量
-            :param offset_multiplier: 偏移的倍数，正数为向右偏移，负数为向左偏移
-            :return: 偏移后的新位置 (x, y)
-            """
-            dx = -lane_width * math.sin(heading)
-            dy = lane_width * math.cos(heading)
-            # 应用偏移
-            new_x = position[0] + offset_multiplier * dx
-            new_y = position[1] + offset_multiplier * dy
-            return new_x, new_y
-
         for _, segment in self.simulation.segments.items():
             for lane in segment.lanes:
                 for vehicle in lane.vehicles:
@@ -319,41 +320,42 @@ class Visualizer:
                     # Optionally offset the text vertically so it doesn't overlap with the vehicle
                     text_position = (text_position[0], text_position[1] + 2)
 
-                    # 绘制速度、加速度和ID的
-                    if self.show_speed:
-                        # 绘制速度
-                        dpg.draw_text(
-                            pos=text_position,
-                            text=f"V:{vehicle.v:.2f}",
-                            size=2 * self.zoom,
-                            color=(255, 255, 255),
-                            parent="Canvas"
-                        )
-                        new_pos = (text_position[0] + 7, text_position[1])
-                        dpg.draw_text(pos=new_pos, text=f"at:{str(lane.lane_id) + ' ' + str(vehicle.x)}",
-                                      size=2 * self.zoom, color=(255, 255, 255), parent="Canvas")
+                    self.activate_vehicle_info(lane, text_position, vehicle)
 
-                    if self.show_acceleration:
-                        # 计算并绘制加速度
-                        acceleration_position = (text_position[0], text_position[1] + 2)
-                        dpg.draw_text(
-                            pos=acceleration_position,
-                            text=f"A:{vehicle.a:.2f}",
-                            size=2 * self.zoom,
-                            color=(255, 255, 255),
-                            parent="Canvas"
-                        )
-
-                    if self.show_id:
-                        # 计算并绘制ID
-                        id_position = (text_position[0], text_position[1] + 4)
-                        dpg.draw_text(
-                            pos=id_position,
-                            text=f"ID:{vehicle.id}",
-                            size=2 * self.zoom,
-                            color=(255, 255, 255),
-                            parent="Canvas"
-                        )
+    def activate_vehicle_info(self, lane, text_position, vehicle):
+        # 绘制速度、加速度和ID的
+        if self.show_speed:
+            # 绘制速度
+            dpg.draw_text(
+                pos=text_position,
+                text=f"V:{vehicle.v:.2f}",
+                size=2 * self.zoom,
+                color=(255, 255, 255),
+                parent="Canvas"
+            )
+            new_pos = (text_position[0] + 7, text_position[1])
+            dpg.draw_text(pos=new_pos, text=f"at:{str(lane.lane_id) + ' ' + str(vehicle.x)}",
+                          size=2 * self.zoom, color=(255, 255, 255), parent="Canvas")
+        if self.show_acceleration:
+            # 计算并绘制加速度
+            acceleration_position = (text_position[0], text_position[1] + 2)
+            dpg.draw_text(
+                pos=acceleration_position,
+                text=f"A:{vehicle.a:.2f}",
+                size=2 * self.zoom,
+                color=(255, 255, 255),
+                parent="Canvas"
+            )
+        if self.show_id:
+            # 计算并绘制ID
+            id_position = (text_position[0], text_position[1] + 4)
+            dpg.draw_text(
+                pos=id_position,
+                text=f"ID:{vehicle.id}",
+                size=2 * self.zoom,
+                color=(255, 255, 255),
+                parent="Canvas"
+            )
 
     def draw_vehicle_at_connections(self):
         for connector in self.simulation.connectors.values():
@@ -368,13 +370,14 @@ class Visualizer:
                 position = connector.get_point(progress)
 
                 offset_num = ((vehicle.at_lane + 1) * 2 - 1 - connector.num_lanes) / 2
-
                 # print('getting heading: ', vehicle.id)
                 heading = connector.get_heading(progress)
-                # position_at_lane = offset_position(position, heading, connector.lane_width, offset_num)
+
+                position_at_lane = offset_position(position, heading, connector.lane_width, offset_num)
+
                 node1 = dpg.add_draw_node(parent="Canvas")
 
-                translate = dpg.create_translation_matrix(position)
+                translate = dpg.create_translation_matrix(position_at_lane)
                 rotate = dpg.create_rotation_matrix(heading, [0, 0, 1])
                 dpg.apply_transform(node1, translate * rotate)
 
@@ -386,7 +389,7 @@ class Visualizer:
                     parent=node1,
                 )
 
-
+                # self.activate_vehicle_info(lane, text_position, vehicle)
 
     def draw_tl(self):
         """

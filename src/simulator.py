@@ -50,8 +50,11 @@ class Simulation:
         seg = Segment(*args)
         self.add_segment(seg)
 
-    def create_connector(self, *args):
-        connector = Connector(*args)
+    def create_connector(self, *args, generative_bezier_curve=False):
+        if not generative_bezier_curve:
+            connector = Connector(*args)
+        else:
+            connector = Connector(*args, generative_bezier_curve=True)
         self.add_connector(connector)
 
     def create_quadratic_bezier_curve(self, id, points, lanes):
@@ -209,8 +212,10 @@ class Simulation:
                             to_lane_candidates = next_connector.connections[from_lane]
                             # 选取连接器链接的下游路段lane
                             vehicle.to_lane = random.choice(list(to_lane_candidates.keys()))
-                            obj_connect = to_lane_candidates[vehicle.to_lane]
+                            # obj_connect = to_lane_candidates[vehicle.to_lane]
                             next_connector.add_vehicle(vehicle, from_lane, vehicle.to_lane)
+                            # 更新vehicle在连接器上的相对位置，便于绘制
+                            vehicle.at_lane = int(from_lane) - next_connector.innermost_connection_id
 
                         # self.segments[next_road_id].lanes[vehicle.at_lane].add_vehicle(vehicle)
                         # remove it from its road

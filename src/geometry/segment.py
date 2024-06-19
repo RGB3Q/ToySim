@@ -115,7 +115,7 @@ class Segment:
             integ = f(mid_point)
         return mid_point
 
-    def find_normalized_path(self, CURVE_RESOLUTION=20):
+    def find_normalized_path(self, CURVE_RESOLUTION=15):
         normalized_path = [(self.compute_x(0), self.compute_y(0))]
         l = self.get_length()
         target_l = l / (CURVE_RESOLUTION - 1)
