@@ -214,11 +214,13 @@ class Simulation:
 
                         # self.segments[next_road_id].lanes[vehicle.at_lane].add_vehicle(vehicle)
                         # remove it from its road
-                        lane.vehicles.remove(vehicle)
+                        # lane.vehicles.remove(vehicle)
+                        lane.remove_vehicle(vehicle)
                         # Reset vehicle properties
                         vehicle.x = 0
                     else:
-                        lane.vehicles.remove(vehicle)
+                        # lane.vehicles.remove(vehicle)
+                        lane.remove_vehicle(vehicle)
 
         for connector in self.connectors.values():
             for from_lane, to_lane_dic in connector.connections.items():
@@ -242,6 +244,7 @@ class Simulation:
                         connector.remove_vehicle(head_veh, from_lane, to_lane)
                         self.segments[connector.to_segment].lanes[int(to_lane)].add_vehicle(head_veh)
                         head_veh.x = 0
+                        head_veh.current_road_index += 1
 
         # Update traffic lights
         for signal_id, signal in self.traffic_signals.items():

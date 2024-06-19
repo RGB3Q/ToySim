@@ -74,7 +74,7 @@ class Visualizer:
         dpg.add_draw_node(tag="Canvas", parent="viz_port")
 
         with dpg.window(tag="SimControl", label="SimControl", no_close=True, no_collapse=True, width=250, height=190,
-                        no_resize=True, no_move=True, no_scrollbar=True,):
+                        no_resize=True, no_move=True, no_scrollbar=True, ):
 
             with dpg.group(horizontal=True):
                 dpg.add_button(label="Run", tag="RunStopButton", callback=self.toggle, width=60)
@@ -112,7 +112,8 @@ class Visualizer:
             self.show_id = True
         if not hasattr(self, 'show_status_color'):
             self.show_status_color = False
-        with dpg.window(label="Vehicle Info", pos=[0, 190], width=250, height=130, no_close=True, no_collapse=True, no_resize=True, no_move=True):
+        with dpg.window(label="Vehicle Info", pos=[0, 190], width=250, height=130, no_close=True, no_collapse=True,
+                        no_resize=True, no_move=True):
             dpg.add_checkbox(label="Show Speed", default_value=self.show_speed,
                              callback=lambda sender, app_data: setattr(self, 'show_speed', app_data))
             dpg.add_checkbox(label="Show Acceleration", default_value=self.show_acceleration,
@@ -166,13 +167,18 @@ class Visualizer:
         dpg.destroy_context()
 
     def render_loop(self):
+        # print('updating frame: ', self.simulation.frame_count)
         self.update_inertial_zoom()
         # Remove old drawings
         dpg.delete_item("OverlayCanvas", children_only=True)
         dpg.delete_item("Canvas", children_only=True)
 
         self.draw_segments()
+        # self.draw_connectors()
+        # print('drawing vehicles at segment')
         self.draw_vehicles()
+        # print('drawing vehicles at connections')
+        self.draw_vehicle_at_connections()
 
         self.draw_tl()
         self.draw_grid(10)
@@ -183,9 +189,21 @@ class Visualizer:
 
         # Update panels
         self.update_panels()
-
+        print('continue simulation')
         if self.is_running:
             self.simulation.run(self.speed, self.delay)
+
+    def draw_connectors(self):
+        for _, connector in self.simulation.connectors.items():
+            connector_width = len(connector.connections) * connector.lane_width
+            dpg.draw_polyline(connector.points,
+                              color=(180, 180, 220, 10),
+                              thickness=connector_width * self.zoom,
+                              parent="Canvas")
+            dpg.draw_polyline(connector.points,
+                              color=(180, 180, 220, 10),
+                              thickness=0.5 * self.zoom,
+                              parent="Canvas")
 
     def draw_segments(self):
         for _, segment in self.simulation.segments.items():
@@ -242,14 +260,13 @@ class Visualizer:
         for _, segment in self.simulation.segments.items():
             for lane in segment.lanes:
                 for vehicle in lane.vehicles:
-
                     progress = vehicle.x / segment.length
                     if progress > 1:
                         progress = 1
 
                     position = segment.get_point(progress)
 
-                    offset_num = ((vehicle.at_lane +1) * 2 - 1 - segment.num_lanes)/2
+                    offset_num = ((vehicle.at_lane + 1) * 2 - 1 - segment.num_lanes) / 2
                     heading = segment.get_heading(progress)
                     position_at_lane = offset_position(position, heading, segment.lane_width, offset_num)
 
@@ -259,9 +276,8 @@ class Visualizer:
                             (0, 0),
                             (vehicle.length, 0),
                             thickness=1.76 * self.zoom,
-                            color=(0, 0, 200,127),
+                            color=(0, 0, 200, 127),
                             parent=node,
-
                         )
                     elif self.show_status_color:
                         if vehicle.stopped:
@@ -313,8 +329,9 @@ class Visualizer:
                             color=(255, 255, 255),
                             parent="Canvas"
                         )
-                        new_pos = (text_position[0]+7, text_position[1])
-                        dpg.draw_text(pos=new_pos,text=f"at:{str(lane.lane_id)+' '+str(vehicle.x)}",size=2 * self.zoom,color=(255, 255, 255),parent="Canvas")
+                        new_pos = (text_position[0] + 7, text_position[1])
+                        dpg.draw_text(pos=new_pos, text=f"at:{str(lane.lane_id) + ' ' + str(vehicle.x)}",
+                                      size=2 * self.zoom, color=(255, 255, 255), parent="Canvas")
 
                     if self.show_acceleration:
                         # 计算并绘制加速度
@@ -337,6 +354,39 @@ class Visualizer:
                             color=(255, 255, 255),
                             parent="Canvas"
                         )
+
+    def draw_vehicle_at_connections(self):
+        for connector in self.simulation.connectors.values():
+            if not connector.vehicles:
+                continue
+            for vehicle in connector.vehicles:
+                progress = vehicle.x / connector.length
+                if progress > 1:
+                    progress = 1
+
+                # print('getting position: ', vehicle.id)
+                position = connector.get_point(progress)
+
+                offset_num = ((vehicle.at_lane + 1) * 2 - 1 - connector.num_lanes) / 2
+
+                # print('getting heading: ', vehicle.id)
+                heading = connector.get_heading(progress)
+                # position_at_lane = offset_position(position, heading, connector.lane_width, offset_num)
+                node1 = dpg.add_draw_node(parent="Canvas")
+
+                translate = dpg.create_translation_matrix(position)
+                rotate = dpg.create_rotation_matrix(heading, [0, 0, 1])
+                dpg.apply_transform(node1, translate * rotate)
+
+                dpg.draw_line(
+                    (0, 0),
+                    (vehicle.length, 0),
+                    thickness=1.76 * self.zoom,
+                    color=(0, 0, 200, 127),
+                    parent=node1,
+                )
+
+
 
     def draw_tl(self):
         """
@@ -378,11 +428,13 @@ class Visualizer:
                 ]
 
                 with dpg.draw_node(parent="Canvas"):
-                    if segment.traffic_signal_state: #为绿灯
-                        dpg.draw_line(p1=traffic_light_start, p2=traffic_light_end, color=(0, 255, 0), thickness=0.5 * self.zoom)
+                    if segment.traffic_signal_state:  # 为绿灯
+                        dpg.draw_line(p1=traffic_light_start, p2=traffic_light_end, color=(0, 255, 0),
+                                      thickness=0.5 * self.zoom)
 
-                    else: #为红灯
-                        dpg.draw_line(p1=traffic_light_start, p2=traffic_light_end, color=(255, 0, 0), thickness=0.5 * self.zoom)
+                    else:  # 为红灯
+                        dpg.draw_line(p1=traffic_light_start, p2=traffic_light_end, color=(255, 0, 0),
+                                      thickness=0.5 * self.zoom)
 
     def apply_transformation(self):
         screen_center = dpg.create_translation_matrix([self.canvas_width / 2, self.canvas_height / 2, -0.01])
@@ -395,7 +447,6 @@ class Visualizer:
 
     def setup_themes(self):
         with dpg.theme() as global_theme:
-
             with dpg.theme_component(dpg.mvAll):
                 dpg.add_theme_style(dpg.mvStyleVar_FrameRounding, 5, category=dpg.mvThemeCat_Core)
                 dpg.add_theme_style(dpg.mvStyleVar_FrameBorderSize, 1, category=dpg.mvThemeCat_Core)
@@ -444,8 +495,8 @@ class Visualizer:
     def mouse_drag(self, sender, app_data):
         if self.is_dragging:
             self.offset = (
-                self.old_offset[0] + app_data[1]/self.zoom,
-                self.old_offset[1] + app_data[2]/self.zoom
+                self.old_offset[0] + app_data[1] / self.zoom,
+                self.old_offset[1] + app_data[2] / self.zoom
             )
 
     def mouse_release(self):
@@ -453,7 +504,7 @@ class Visualizer:
 
     def mouse_wheel(self, sender, app_data):
         if dpg.is_item_hovered("viz_port"):
-            self.zoom_speed = 1 + 0.01*app_data
+            self.zoom_speed = 1 + 0.01 * app_data
 
     def update_inertial_zoom(self, clip=0.005):
         if self.zoom_speed != 1:
@@ -476,13 +527,13 @@ class Visualizer:
 
         n_x = int(x_start / unit)
         n_y = int(y_start / unit)
-        m_x = int(x_end / unit)+1
-        m_y = int(y_end / unit)+1
+        m_x = int(x_end / unit) + 1
+        m_y = int(y_end / unit) + 1
 
         for i in range(n_x, m_x):
             dpg.draw_line(
-                self.to_screen(unit*i, y_start - 10/self.zoom),
-                self.to_screen(unit*i, y_end + 10/self.zoom),
+                self.to_screen(unit * i, y_start - 10 / self.zoom),
+                self.to_screen(unit * i, y_end + 10 / self.zoom),
                 thickness=1,
                 color=color,
                 parent="OverlayCanvas"
@@ -490,8 +541,8 @@ class Visualizer:
 
         for i in range(n_y, m_y):
             dpg.draw_line(
-                self.to_screen(x_start - 10/self.zoom, unit*i),
-                self.to_screen(x_end + 10/self.zoom, unit*i),
+                self.to_screen(x_start - 10 / self.zoom, unit * i),
+                self.to_screen(x_end + 10 / self.zoom, unit * i),
                 thickness=1,
                 color=color,
                 parent="OverlayCanvas"
@@ -499,14 +550,14 @@ class Visualizer:
 
     def to_screen(self, x, y):
         return (
-            self.canvas_width/2 + (x + self.offset[0] ) * self.zoom,
-            self.canvas_height/2 + (y + self.offset[1]) * self.zoom
+            self.canvas_width / 2 + (x + self.offset[0]) * self.zoom,
+            self.canvas_height / 2 + (y + self.offset[1]) * self.zoom
         )
 
     def to_world(self, x, y):
         return (
-            (x - self.canvas_width/2) / self.zoom - self.offset[0],
-            (y - self.canvas_height/2) / self.zoom - self.offset[1]
+            (x - self.canvas_width / 2) / self.zoom - self.offset[0],
+            (y - self.canvas_height / 2) / self.zoom - self.offset[1]
         )
     # def initialize_highlighter(self):
     #     # Assuming 'canvas_tag' is the ID of your canvas element

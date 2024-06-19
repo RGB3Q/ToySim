@@ -228,6 +228,9 @@ class Vehicle:
         while check.lead:
             check = check.lead
             loc += 1
+            # if loc>50:
+            #     print('possible chain list error: ',self.lead.id, self.id, self.follow.id)
+            #     break
         return loc
 
     def stop(self):

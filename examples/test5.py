@@ -25,7 +25,7 @@ sim.create_segment('6', ((lane_space*1.5, -intersection_size/2), (lane_space*1.5
 sim.create_segment('7', ((-intersection_size/2, -lane_space*1.5), (-length-intersection_size/2, -lane_space*1.5)), 3)
 
 # # Straight
-sim.create_connector('0_6',((lane_space*1.5, intersection_size/2), (lane_space*1.5, -intersection_size/2)),'0','6',[[2,2],[1,1]])
+sim.create_connector('0_6',((lane_space*1.5, intersection_size/2), (lane_space*1.5, -intersection_size/2)),'0','6',[[2,2],[1,1],[3,3]])
 
 
 # sim.create_segment('8', ((lane_space*1.5, intersection_size/2), (lane_space*1.5, -intersection_size/2)), 3)

@@ -21,6 +21,7 @@ class Connector(Segment, ABC):
         self.create_connections()
 
         self.is_available = True
+        self.vehicles = []
 
     def create_connections(self):
         """
@@ -40,17 +41,20 @@ class Connector(Segment, ABC):
         if len(target_connection) > 1:
             veh.lead = target_connection[-2]
             target_connection[-2].follow = veh
+        self.vehicles.append(veh)
 
     def remove_vehicle(self, veh, from_lane, to_lane):
         target_connection = self.connections[from_lane][to_lane]
         target_connection.remove(veh)
         if veh.lead:
+            print('Error: vehicle is not at the front of the connection queue')
             veh.lead.follow = veh.follow
         if veh.follow:
-            veh.follow.lead = veh.lead
+            veh.follow.lead = None
         # 清除当前车辆与前后车辆的关联
         veh.lead = None
         veh.follow = None
+        self.vehicles.remove(veh)
 
     def get_closest_lane(self, lane_id: int):
         """
