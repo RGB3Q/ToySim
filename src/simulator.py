@@ -8,7 +8,28 @@ from src.geometry.connectors import Connector
 from src.vehicle.vehicle import Vehicle
 from src.signal.SignalGroup import TrafficSignal
 import random
+import logging
+import colorlog
 
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+color_formatter = colorlog.ColoredFormatter(
+        '%(log_color)s%(asctime)s - %(levelname)s - %(message)s',
+        log_colors={
+            'DEBUG': 'cyan',
+            'INFO': 'green',
+            'WARNING': 'yellow',
+            'ERROR': 'red',
+            'CRITICAL': 'red,bg_white',
+        }
+    )
+# 将颜色输出格式添加到控制台日志处理器
+console_handler = logging.StreamHandler()
+console_handler.setFormatter(color_formatter)
+logger = logging.getLogger()
+for handler in logger.handlers:
+    logger.removeHandler(handler)
+    # 将控制台日志处理器添加到logger对象
+    logger.addHandler(console_handler)
 
 class Simulation:
 
@@ -31,7 +52,12 @@ class Simulation:
     def add_vehicle(self, veh):
         self.vehicles[veh.id] = veh
         if len(veh.path) > 0:
-            self.segments[veh.path[0]].lanes[0].add_vehicle(veh)
+            # 从lanes列表中随机选取一个对象
+            obj_lane = random.choice(self.segments[veh.path[0]].lanes)
+            obj_lane.add_vehicle(veh)
+            veh.at_lane = obj_lane.lane_index
+            # log the add veh time and veh id
+            logging.info("T: %s, ADD VEH: %s, AT LANE: %s" % (self.t, veh.id, obj_lane.lane_id))
 
     def add_segment(self, seg):
         self.segments.update({seg.id: seg})
@@ -170,6 +196,7 @@ class Simulation:
                                 head_veh.x <= segment.length - segment.traffic_signal.stop_distance / 2:
                             if not head_veh.stopped:
                                 head_veh.stop()
+                    # 注意：slow() 和 stop() 用于改变车辆的状态标记，IDM函数会根据状态标记记性对应的加速度计算
                     head_veh.present_a = head_veh.IDM(None, self.dt)  # 计算假使保持在当前车道上的加速度
                     if not head_veh.x > segment.length - segment.ban_lane_change_distance:
                         head_veh.a = head_veh.evaluate_and_perform_lane_change(adjacent_lanes)
@@ -213,16 +240,18 @@ class Simulation:
                             # 选取连接器链接的下游路段lane
                             vehicle.to_lane = random.choice(list(to_lane_candidates.keys()))
                             # obj_connect = to_lane_candidates[vehicle.to_lane]
+                            lane.remove_vehicle(vehicle)
                             next_connector.add_vehicle(vehicle, from_lane, vehicle.to_lane)
                             # 更新vehicle在连接器上的相对位置，便于绘制
                             vehicle.at_lane = int(from_lane) - next_connector.innermost_connection_id
+                            vehicle.x = 0
 
                         # self.segments[next_road_id].lanes[vehicle.at_lane].add_vehicle(vehicle)
                         # remove it from its road
                         # lane.vehicles.remove(vehicle)
-                        lane.remove_vehicle(vehicle)
+                        # lane.remove_vehicle(vehicle)
                         # Reset vehicle properties
-                        vehicle.x = 0
+                        # vehicle.x = 0
                     else:
                         # lane.vehicles.remove(vehicle)
                         lane.remove_vehicle(vehicle)

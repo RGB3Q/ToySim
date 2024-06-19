@@ -41,7 +41,7 @@ class Visualizer:
 
         # simulation speed
         self.speed = 1
-        self.delay = 0
+        self.delay = 1000
         self.zoom_speed = 1
 
         self.setup()

@@ -2,6 +2,7 @@
 # coding: utf-8
 
 from collections import deque
+import logging
 class Lane:
     def __init__(self, lane_index: int, lane_id: str, speed_limit: int, lane_width, lane_length):
         self.lane_index = lane_index
@@ -23,10 +24,10 @@ class Lane:
         return self.vehicles
 
     def add_vehicle(self, vehicle):
+        if len(self.vehicles) > 0:
+            vehicle.lead = self.vehicles[-1]
+            self.vehicles[-1].follow = vehicle
         self.vehicles.append(vehicle)
-        if len(self.vehicles) > 1:
-            vehicle.lead = self.vehicles[-2]
-            self.vehicles[-2].follow = vehicle
 
     def remove_vehicle(self, vehicle):
         self.vehicles.remove(vehicle)
@@ -39,6 +40,7 @@ class Lane:
         # 清除当前车辆与前后车辆的关联
         vehicle.lead = None
         vehicle.follow = None
+        logging.info("REMOVE VEH: %s, AT LANE: %s" % (vehicle.id, self.lane_id))
 
 
 

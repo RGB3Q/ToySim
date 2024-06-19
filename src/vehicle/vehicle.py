@@ -2,6 +2,7 @@ import uuid
 import numpy as np
 from src.geometry.lanes import Lane
 from typing import List
+import logging
 
 
 # create Vehicle class for simulation
@@ -18,6 +19,10 @@ class Vehicle:
         self.present_a = None
 
         self.dt = 1 / 60
+        self.t = 0
+        self.lc_unlock_t = 0
+        # 连续换道的最小时间间隔
+        self.lc_gap = 3
 
         # 定义礼貌因子politeness factor，用于权衡自身优势和对他人的影响
         # 这个值可以根据需要调整，0表示完全自私，1表示完全利他
@@ -44,7 +49,7 @@ class Vehicle:
 
         self.path = []
         self.current_road_index = 0
-        self.at_lane = 0
+        self.at_lane = None
 
         self.x = 0
         self.v = 0
@@ -99,6 +104,7 @@ class Vehicle:
         else:
             self.v += self.a * self.dt
             self.x += self.v * self.dt + self.a * self.dt ** 2 / 2
+        self.t += self.dt
 
     def evaluate_and_perform_lane_change(self, lanes: List[Lane]):
         """
@@ -107,32 +113,46 @@ class Vehicle:
         :param lanes: [self_lane, left_lane, right_lane] when has both, [sekf_lane, None, right_lane] when only right_lane and vice versa
         :return:
         """
-        # 左右车道都存在
-        if lanes[1] and lanes[2]:
-            left_incentive, l_leader, l_follower, target_a_l = self.calculate_incentive(lanes[1])
-            right_incentive, r_leader, r_follower, target_a_r = self.calculate_incentive(lanes[2])
+        # 拿到换道锁的前提下才允许换道：
+        if self.lc_lock:
+            # 左右车道都存在
+            if lanes[1] and lanes[2]:
+                left_incentive, l_leader, l_follower, target_a_l = self.calculate_incentive(lanes[1])
+                right_incentive, r_leader, r_follower, target_a_r = self.calculate_incentive(lanes[2])
 
-            if left_incentive > right_incentive and left_incentive > 0:
-                self.implement_lane_change(lanes[0], lanes[1], l_leader, l_follower)
-                if l_leader and l_leader.x - self.x < 2.5:
-                    print(self.id, "left", l_leader.id, self.x, l_leader.x, l_follower.x, left_incentive, target_a_l)
-                return target_a_l
-            elif right_incentive > left_incentive and right_incentive > 0.2:  # Add bias to right side
-                self.implement_lane_change(lanes[0], lanes[2], r_leader, r_follower)
-                return target_a_r
-        # 仅存在左侧车道
-        elif lanes[1]:
-            left_incentive, l_leader, l_follower, target_a_l = self.calculate_incentive(lanes[1])
-            if left_incentive > 0:
-                self.implement_lane_change(lanes[0], lanes[1], l_leader, l_follower)
-                return target_a_l
-        # 仅存在右侧车道
-        elif lanes[2]:
-            right_incentive, r_leader, r_follower, target_a_r = self.calculate_incentive(lanes[2])
-            if right_incentive > 0.2:  # Add bias to right side
-                self.implement_lane_change(lanes[0], lanes[2], r_leader, r_follower)
-                return target_a_r
-        return self.present_a
+                if left_incentive > right_incentive and left_incentive > 0:
+                    self.implement_lane_change(lanes[0], lanes[1], l_leader, l_follower)
+
+                    # print(self.id, "now:", self.t, "lc_unlock_t:", self.lc_unlock_t)
+                    # if l_leader and l_leader.x - self.x < 2.5:
+                    # print("close lc crash hazard:", self.id, "left", l_leader.id, self.x, l_leader.x, l_follower.x, left_incentive, target_a_l)
+                    return target_a_l
+                elif right_incentive > left_incentive and right_incentive > 0.2:  # Add bias to right side
+                    self.implement_lane_change(lanes[0], lanes[2], r_leader, r_follower)
+                    return target_a_r
+                else:
+                    return self.present_a
+            # 仅存在左侧车道
+            elif lanes[1]:
+                left_incentive, l_leader, l_follower, target_a_l = self.calculate_incentive(lanes[1])
+                if left_incentive > 0:
+                    self.implement_lane_change(lanes[0], lanes[1], l_leader, l_follower)
+                    return target_a_l
+                else:
+                    return self.present_a
+            # 仅存在右侧车道
+            elif lanes[2]:
+                right_incentive, r_leader, r_follower, target_a_r = self.calculate_incentive(lanes[2])
+                if right_incentive > 0.2:  # Add bias to right side
+                    self.implement_lane_change(lanes[0], lanes[2], r_leader, r_follower)
+                    return target_a_r
+                else:
+                    return self.present_a
+            else:
+                return self.present_a
+        else:
+            # print("lc_refused")
+            return self.present_a
 
     def implement_lane_change(self, present_lane: Lane, target_lane: Lane, target_lead, target_follow):
         """
@@ -142,6 +162,7 @@ class Vehicle:
         :param target_lead: lead vehicle of target_lane after moving into
         :param target_follow: follow vehicle of target_lane after moving into
         """
+        logging.info("IMPLEMENT LC: %s, %s TO %s" % (self.id, present_lane.lane_id, target_lane.lane_id))
         present_lane.remove_vehicle(self)
         insert_loc = 0
         if target_lead:
@@ -153,6 +174,8 @@ class Vehicle:
             self.follow = target_follow
         target_lane.vehicles.insert(insert_loc, self)
         self.at_lane = target_lane.lane_index
+        self.lc_unlock_t = self.t + self.lc_gap
+
 
     def search_adjacent_lane(self, target_lane: Lane):
         """
@@ -185,7 +208,7 @@ class Vehicle:
         # 计算换道后可能的加速度
         target_leader, target_follower = self.search_adjacent_lane(target_lane)
         if target_leader and target_follower:
-            if target_leader.x - self.x < self.length+1:
+            if target_leader.x - self.x < self.length+2 or self.x-target_follower.x < self.length+2:
                 return -1000, target_leader, target_follower, 0
             target_a = self.IDM(target_leader, self.dt)  # 目标车道的加速度
             follow_a_latent = target_follower.IDM(self, self.dt)  # 换道后目标车道后车的加速度
@@ -199,7 +222,7 @@ class Vehicle:
             # 假设target_vehicle的后车是目标车道上换道后紧随当前车辆的车辆
             follower_disadvantage = follow_a_latent - follow_a
         elif target_leader and not target_follower:
-            if target_leader.x - self.x < self.length+1:
+            if target_leader.x - self.x < self.length+2:
                 return -1000, target_leader, target_follower, 0
             target_a = self.IDM(target_leader, self.dt)  # 目标车道的加速度
             # 计算换道后的自身优势（换道后的加速度 - 换道前的加速度
@@ -209,6 +232,8 @@ class Vehicle:
             follow_a_latent = 0
             follower_disadvantage = 0
         elif not target_leader and target_follower:
+            if self.x-target_follower.x < self.length+2:
+                return -1000, target_leader, target_follower, 0
             target_a = self.IDM(None, self.dt)  # 目标车道的加速度
             follow_a_latent = target_follower.IDM(self, self.dt)  # 换道后目标车道后车的加速度
             follow_a = target_follower.IDM(target_leader, self.dt)  # 不换道目标车道后车的加速度
@@ -256,3 +281,9 @@ class Vehicle:
     def unslow(self):
         self.v_max = self._v_max
         self.slowing_down = False
+
+    @property
+    def lc_lock(self):
+        if self.t >= self.lc_unlock_t:
+            return True
+        return False
