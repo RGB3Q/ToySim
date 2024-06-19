@@ -13,17 +13,18 @@ class CubicCurve(Segment):
         self.end = points[3]
 
         # Generate path
-        path = []
-        for i in range(CURVE_RESOLUTION):
-            t = i/CURVE_RESOLUTION
-            x = t**3*self.end[0] + 3*t**2*(1-t)*self.control_2[0] + 3*(1-t)**2*t*self.control_1[0] + (1-t)**3*self.start[0]
-            y = t**3*self.end[1] + 3*t**2*(1-t)*self.control_2[1] + 3*(1-t)**2*t*self.control_1[1] + (1-t)**3*self.start[1]
-            path.append((x, y))
+        # path = []
+        # for i in range(CURVE_RESOLUTION):
+        #     t = i/CURVE_RESOLUTION
+        #     x = t**3*self.end[0] + 3*t**2*(1-t)*self.control_2[0] + 3*(1-t)**2*t*self.control_1[0] + (1-t)**3*self.start[0]
+        #     y = t**3*self.end[1] + 3*t**2*(1-t)*self.control_2[1] + 3*(1-t)**2*t*self.control_1[1] + (1-t)**3*self.start[1]
+        #     path.append((x, y))
 
-        super().__init__(id, path, num_lanes)
+        super().__init__(id, points, num_lanes)
+
         # Arc-length parametrization
         normalized_path = self.find_normalized_path(CURVE_RESOLUTION)
-        super().__init__(id, normalized_path, num_lanes)
+        self.points = normalized_path
 
     def compute_x(self, t):
         return t**3*self.end[0] + 3*t**2*(1-t)*self.control_2[0] + 3*(1-t)**2*t*self.control_1[0] + (1-t)**3*self.start[0]
