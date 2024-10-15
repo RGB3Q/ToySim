@@ -363,8 +363,10 @@ class Visualizer:
                 continue
             for vehicle in connector.vehicles:
                 progress = vehicle.x / connector.length
-                if progress > 1:
-                    progress = 1
+                # if progress > 1:
+                #     progress = 1
+                # elif progress < 0:
+                #     progress = 0
 
                 # print('getting position: ', vehicle.id)
                 position = connector.get_point(progress)

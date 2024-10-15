@@ -44,35 +44,40 @@ sim.create_connector('3_5', ((-intersection_size / 2, lane_space * 1.5), (inters
 sim.create_connector('1_7', ((intersection_size / 2, -lane_space * 1.5), (-intersection_size / 2, -lane_space * 1.5)),
                      '1', '7', [[0, 0], [1, 1], [2, 2]])
 # Right turn connection
-sim.create_connector('0_5', ((lane_space * 2.5, intersection_size / 2), (lane_space * 2.5, lane_space * 2.5), (intersection_size / 2, lane_space * 2.5)),
+sim.create_connector('0_5', ((lane_space * 2.5, intersection_size / 2), (lane_space * 2.5, lane_space * 2.5),
+                             (intersection_size / 2, lane_space * 2.5)),
                      '0', '5', [[2, 2]], generative_bezier_curve=True)
-sim.create_connector('1_6', ((intersection_size / 2, -lane_space * 2.5), (lane_space * 2.5, -lane_space * 2.5), (lane_space * 2.5, -intersection_size / 2)),
+sim.create_connector('1_6', ((intersection_size / 2, -lane_space * 2.5), (lane_space * 2.5, -lane_space * 2.5),
+                             (lane_space * 2.5, -intersection_size / 2)),
                      '1', '6', [[2, 2]], generative_bezier_curve=True)
-sim.create_connector('2_7', ((-lane_space * 2.5, -intersection_size / 2), (-lane_space * 2.5, -lane_space * 2.5), (-intersection_size / 2, -lane_space * 2.5)),
+sim.create_connector('2_7', ((-lane_space * 2.5, -intersection_size / 2), (-lane_space * 2.5, -lane_space * 2.5),
+                             (-intersection_size / 2, -lane_space * 2.5)),
                      '2', '7', [[2, 2]], generative_bezier_curve=True)
-sim.create_connector('3_4', ((-intersection_size / 2, lane_space * 2.5), (-lane_space * 2.5, lane_space * 2.5), (-lane_space * 2.5, intersection_size / 2)),
+sim.create_connector('3_4', ((-intersection_size / 2, lane_space * 2.5), (-lane_space * 2.5, lane_space * 2.5),
+                             (-lane_space * 2.5, intersection_size / 2)),
                      '3', '4', [[2, 2]], generative_bezier_curve=True)
 
 # Left turn connection
-sim.create_connector('0_7', ((lane_space * 0.5, intersection_size / 2), (lane_space * 0.5, -lane_space * 0.5), (-intersection_size / 2, -lane_space * 0.5)),
+sim.create_connector('0_7', ((lane_space * 0.5, intersection_size / 2), (lane_space * 0.5, -lane_space * 0.5),
+                             (-intersection_size / 2, -lane_space * 0.5)),
                      '0', '7', [[0, 0]], generative_bezier_curve=True)
-sim.create_connector('1_4', ((intersection_size / 2, -lane_space * 0.5), (-lane_space * 0.5, -lane_space * 0.5), (-lane_space * 0.5, intersection_size / 2)),
+sim.create_connector('1_4', ((intersection_size / 2, -lane_space * 0.5), (-lane_space * 0.5, -lane_space * 0.5),
+                             (-lane_space * 0.5, intersection_size / 2)),
                      '1', '4', [[0, 0]], generative_bezier_curve=True)
-sim.create_connector('2_5', ((-lane_space * 0.5, -intersection_size / 2), (-lane_space * 0.5, lane_space * 0.5), (intersection_size / 2, lane_space * 0.5)),
+sim.create_connector('2_5', ((-lane_space * 0.5, -intersection_size / 2), (-lane_space * 0.5, lane_space * 0.5),
+                             (intersection_size / 2, lane_space * 0.5)),
                      '2', '5', [[0, 0]], generative_bezier_curve=True)
-sim.create_connector('3_6', ((-intersection_size / 2, lane_space * 0.5), (lane_space * 0.5, lane_space * 0.5), (lane_space * 0.5, -intersection_size / 2)),
+sim.create_connector('3_6', ((-intersection_size / 2, lane_space * 0.5), (lane_space * 0.5, lane_space * 0.5),
+                             (lane_space * 0.5, -intersection_size / 2)),
                      '3', '6', [[0, 0]], generative_bezier_curve=True)
 
-vg = VehicleGenerator({
-    'vehicles': [
+vg = VehicleGenerator(
+    'vg1',
+    {'vehicles': [
         (1, {'path': ['0', '6'], 'v': 12}),
-        # (1, {'path': ['0', '5'], 'v': 20}),
-        # (1, {'path': ['0', '7'], 'v': 12}),
-        # (1, {'path': ['2', '4'], 'v': 12}),
-        # (1, {'path': ['2', '7'], 'v': 12}),
-        # (1, {'path': ['2', '5'], 'v': 12}),
-    ]
-})
+    ],
+        'vehicle_rate': 30,
+    })
 
 sim.add_vehicle_generator(vg)
 

@@ -10,6 +10,8 @@ from src.signal.SignalGroup import TrafficSignal
 import random
 import logging
 import colorlog
+from logging.handlers import RotatingFileHandler
+
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 color_formatter = colorlog.ColoredFormatter(
@@ -25,14 +27,18 @@ color_formatter = colorlog.ColoredFormatter(
 # 将颜色输出格式添加到控制台日志处理器
 console_handler = logging.StreamHandler()
 console_handler.setFormatter(color_formatter)
+
+file_handler = RotatingFileHandler('app.log', maxBytes=100 * 1024 * 1024)
+file_handler.setLevel(logging.INFO)
+
 logger = logging.getLogger()
 for handler in logger.handlers:
     logger.removeHandler(handler)
     # 将控制台日志处理器添加到logger对象
     logger.addHandler(console_handler)
+    logger.addHandler(file_handler)
 
 class Simulation:
-
     def __init__(self):
         self.segments = {}
         self.connectors = {}
@@ -54,10 +60,17 @@ class Simulation:
         if len(veh.path) > 0:
             # 从lanes列表中随机选取一个对象
             obj_lane = random.choice(self.segments[veh.path[0]].lanes)
-            obj_lane.add_vehicle(veh)
-            veh.at_lane = obj_lane.lane_index
-            # log the add veh time and veh id
-            logging.info("T: %s, ADD VEH: %s, AT LANE: %s" % (self.t, veh.id, obj_lane.lane_id))
+            if not obj_lane.vehicles:
+                # 如果车道上的车辆列表为空，则直接添加车辆
+                obj_lane.add_vehicle(veh)
+                veh.at_lane = obj_lane.lane_index
+                # log the add veh time and veh id
+                logging.info("T: %s, ADD VEH: %s, AT LANE: %s" % (self.t, veh.id, obj_lane.lane_id))
+            elif obj_lane.vehicles[-1].x > veh.s0:
+                obj_lane.add_vehicle(veh)
+                veh.at_lane = obj_lane.lane_index
+                # log the add veh time and veh id
+                logging.info("T: %s, ADD VEH: %s, AT LANE: %s" % (self.t, veh.id, obj_lane.lane_id))
 
     def add_segment(self, seg):
         self.segments.update({seg.id: seg})

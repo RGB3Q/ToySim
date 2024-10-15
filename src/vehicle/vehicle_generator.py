@@ -5,9 +5,10 @@ from numpy.random import randint
 
 
 class VehicleGenerator:
-    def __init__(self, config={}):
+    def __init__(self, vg_id, config={}):
         # Set default configurations
         self.set_default_config()
+        self.vg_id = vg_id
 
         # Update configurations
         for attr, val in config.items():
@@ -20,6 +21,9 @@ class VehicleGenerator:
         self.v_max = None
         self.b_max = None
         self.veh_cnt = 0
+
+        # record num of vehicles generated
+        self.num = 0
 
         # Calculate properties
         self.init_properties()
@@ -37,21 +41,14 @@ class VehicleGenerator:
 
     def generate_vehicle(self):
         """Returns a random vehicle from self.vehicles with random proportions"""
-        config = {
-            'length': self.length,
-            'a_max': self.a_max,
-            's_safe': self.s_safe,
-            'v_max': self.v_max,
-            'b_max': self.b_max,
-            'id': str(self.veh_cnt)
-        }
         total = sum(pair[0] for pair in self.vehicles)
         random.seed(42)
         r = randint(1, total + 1)
         for (weight, veh_config) in self.vehicles:
-            veh_config.update({'id': '_'.join(veh_config['path'])+'__'+str(self.veh_cnt)})
+            veh_config.update({'vg_id': self.vg_id, 'vg_num': self.num, 'id': str(self.vg_id)+'_'+str(self.num)})
             r -= weight
             if r <= 0:
+                self.num += 1
                 return Vehicle(veh_config)
 
     def update(self, simulation):
