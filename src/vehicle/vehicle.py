@@ -162,7 +162,7 @@ class Vehicle:
         :param target_lead: lead vehicle of target_lane after moving into
         :param target_follow: follow vehicle of target_lane after moving into
         """
-        logging.info("IMPLEMENT LC: %s, %s TO %s" % (self.id, present_lane.lane_id, target_lane.lane_id))
+        logging.info("IMPLEMENT LC: %s, %s TO %s, POS: %s" % (self.id, present_lane.lane_id, target_lane.lane_id, self.x))
         present_lane.remove_vehicle(self)
         insert_loc = 0
         if target_lead:

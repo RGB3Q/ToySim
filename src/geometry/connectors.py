@@ -4,6 +4,7 @@ from collections import deque
 import numpy as np
 from scipy.interpolate import interp1d
 from src.geometry.segment import Segment
+import logging
 
 
 def generate_bezier_path(points, CURVE_RESOLUTION=15):
@@ -63,6 +64,7 @@ class Connector(Segment, ABC):
                 self.connections[connection_id].update({str(info[1]): deque()})
 
     def add_vehicle(self, veh, from_lane, to_lane):
+        print('add veh to connector: %s, from lane: %s, to lane: %s' % (self.id, from_lane, to_lane))
         target_connection = self.connections[from_lane][to_lane]
         target_connection.append(veh)
         if len(target_connection) > 1:
@@ -82,6 +84,7 @@ class Connector(Segment, ABC):
         veh.lead = None
         veh.follow = None
         self.vehicles.remove(veh)
+        logging.info("REMOVE VEH: %s, AT CONNECTOR: %s, POS: %s" % (veh.id, self.id, veh.x))
 
     def get_closest_lane(self, lane_id: int):
         """

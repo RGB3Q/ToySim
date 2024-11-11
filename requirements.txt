@@ -1,0 +1,4 @@
+dearpygui~=1.8.0
+numpy~=1.24.2
+scipy~=1.13.0
+colorlog~=6.8.2

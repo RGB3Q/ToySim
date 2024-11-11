@@ -63,16 +63,17 @@ sim.create_connector('2_5', ((-lane_space * 0.5, -intersection_size / 2), (-lane
 sim.create_connector('3_6', ((-intersection_size / 2, lane_space * 0.5), (lane_space * 0.5, lane_space * 0.5), (lane_space * 0.5, -intersection_size / 2)),
                      '3', '6', [[0, 0]], generative_bezier_curve=True)
 
-vg = VehicleGenerator({
-    'vehicles': [
+vg = VehicleGenerator(
+    'vg1',
+    {'vehicles': [
         (1, {'path': ['0', '6'], 'v': 12}),
         (1, {'path': ['0', '5'], 'v': 20}),
         (1, {'path': ['0', '7'], 'v': 12}),
         (1, {'path': ['2', '4'], 'v': 12}),
         (1, {'path': ['2', '7'], 'v': 12}),
-        (1, {'path': ['2', '5'], 'v': 12}),
-    ]
-})
+        (1, {'path': ['2', '5'], 'v': 12})],
+    'vehicle_rates': 30,
+    })
 
 sim.add_vehicle_generator(vg)
 

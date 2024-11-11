@@ -40,7 +40,8 @@ class Lane:
         # 清除当前车辆与前后车辆的关联
         vehicle.lead = None
         vehicle.follow = None
-        logging.info("REMOVE VEH: %s, AT LANE: %s" % (vehicle.id, self.lane_id))
+        logging.info("REMOVE VEH: %s, AT LANE: %s, POS: %s" % (vehicle.id, self.lane_id, vehicle.x))
+        logging.info("LANE VEH AFTER REMOVE: %s" % vehicle in self.vehicles)
 
 
 

@@ -38,6 +38,7 @@ for handler in logger.handlers:
     logger.addHandler(console_handler)
     logger.addHandler(file_handler)
 
+
 class Simulation:
     def __init__(self):
         self.segments = {}
@@ -65,12 +66,12 @@ class Simulation:
                 obj_lane.add_vehicle(veh)
                 veh.at_lane = obj_lane.lane_index
                 # log the add veh time and veh id
-                logging.info("T: %s, ADD VEH: %s, AT LANE: %s" % (self.t, veh.id, obj_lane.lane_id))
+                logging.info("T: %s, ADD VEH: %s, AT LANE: %s, POS: %s" % (self.t, veh.id, obj_lane.lane_id, veh.x))
             elif obj_lane.vehicles[-1].x > veh.s0:
                 obj_lane.add_vehicle(veh)
                 veh.at_lane = obj_lane.lane_index
                 # log the add veh time and veh id
-                logging.info("T: %s, ADD VEH: %s, AT LANE: %s" % (self.t, veh.id, obj_lane.lane_id))
+                logging.info("T: %s, ADD VEH: %s, AT LANE: %s, POS: %s" % (self.t, veh.id, obj_lane.lane_id, veh.x))
 
     def add_segment(self, seg):
         self.segments.update({seg.id: seg})
@@ -238,6 +239,7 @@ class Simulation:
                 vehicle = lane.vehicles[0]
                 # If first vehicle is out of road bounds
                 if vehicle.x >= lane.lane_length:
+                    print('sim_time:', self.t, vehicle.id, vehicle.x, vehicle.at_lane)
                     # If vehicle has a next road
                     if vehicle.current_road_index + 1 < len(vehicle.path):
                         # Update current road to next road
@@ -253,11 +255,13 @@ class Simulation:
                             # 选取连接器链接的下游路段lane
                             vehicle.to_lane = random.choice(list(to_lane_candidates.keys()))
                             # obj_connect = to_lane_candidates[vehicle.to_lane]
+                            vehicle.x = 0
                             lane.remove_vehicle(vehicle)
                             next_connector.add_vehicle(vehicle, from_lane, vehicle.to_lane)
                             # 更新vehicle在连接器上的相对位置，便于绘制
                             vehicle.at_lane = int(from_lane) - next_connector.innermost_connection_id
-                            vehicle.x = 0
+                            print('sim_time:', self.t, 'reset x', vehicle.id, vehicle.x, vehicle.at_lane)
+
 
                         # self.segments[next_road_id].lanes[vehicle.at_lane].add_vehicle(vehicle)
                         # remove it from its road
@@ -267,7 +271,9 @@ class Simulation:
                         # vehicle.x = 0
                     else:
                         # lane.vehicles.remove(vehicle)
+                        vehicle.x = 0
                         lane.remove_vehicle(vehicle)
+
 
         for connector in self.connectors.values():
             for from_lane, to_lane_dic in connector.connections.items():
@@ -287,11 +293,18 @@ class Simulation:
                             veh.a = veh.IDM(veh.lead, self.dt)
                             veh.update_position_and_velocity()
 
-                    if head_veh.x > connector.length:
-                        connector.remove_vehicle(head_veh, from_lane, to_lane)
-                        self.segments[connector.to_segment].lanes[int(to_lane)].add_vehicle(head_veh)
-                        head_veh.x = 0
-                        head_veh.current_road_index += 1
+
+                    # if head_veh.x > connector.length:
+                    #     head_veh.x = 0
+                    #     connector.remove_vehicle(head_veh, from_lane, to_lane)
+                    #     self.segments[connector.to_segment].lanes[int(to_lane)].add_vehicle(head_veh)
+                    #     head_veh.current_road_index += 1
+                    for veh in list(d_que):
+                        if veh.x > connector.length:
+                            veh.x = 0
+                            connector.remove_vehicle(veh, from_lane, to_lane)
+                            self.segments[connector.to_segment].lanes[int(to_lane)].add_vehicle(veh)
+                            veh.current_road_index += 1
 
         # Update traffic lights
         for signal_id, signal in self.traffic_signals.items():
@@ -300,6 +313,7 @@ class Simulation:
         # Update vehicle generators
         for gen in self.vehicle_generator:
             gen.update(self)
+
         # Increment time
         self.t += self.dt
         self.frame_count += 1

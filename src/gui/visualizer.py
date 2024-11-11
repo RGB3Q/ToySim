@@ -192,10 +192,6 @@ class Visualizer:
 
         self.draw_segments()
         self.draw_connectors()
-        # print('drawing vehicles at segment')
-        self.draw_vehicles()
-        # print('drawing vehicles at connections')
-        self.draw_vehicle_at_connections()
 
         self.draw_tl()
         self.draw_grid(10)
@@ -209,6 +205,10 @@ class Visualizer:
 
         if self.is_running:
             self.simulation.run(self.speed, self.delay)
+
+        self.draw_vehicles()
+
+        self.draw_vehicle_at_connections()
 
     def draw_connectors(self):
         for _, connector in self.simulation.connectors.items():
@@ -262,8 +262,11 @@ class Visualizer:
             for lane in segment.lanes:
                 for vehicle in lane.vehicles:
                     progress = vehicle.x / segment.length
-                    if progress > 1:
-                        progress = 1
+                    # if progress > 1:
+                    #     progress = 1
+                    if progress < 0 or progress > 1:
+                        print('progress outbound at lane', progress, 'id:', vehicle.id, 'lane_id:', lane.lane_id+"&"+vehicle.at_lane,
+                              'road_index:', vehicle.current_road_index, 'path:', vehicle.path, 'x:', vehicle.x)
 
                     position = segment.get_point(progress)
 
@@ -369,6 +372,10 @@ class Visualizer:
                 #     progress = 0
 
                 # print('getting position: ', vehicle.id)
+                if progress<0 or progress>1:
+                    print('progress outbound at connector', progress, 'id:', vehicle.id, 'lane_id:', vehicle.at_lane,
+                          'road_index:', vehicle.current_road_index, 'path:', vehicle.path, 'x:', vehicle.x)
+
                 position = connector.get_point(progress)
 
                 offset_num = ((vehicle.at_lane + 1) * 2 - 1 - connector.num_lanes) / 2
