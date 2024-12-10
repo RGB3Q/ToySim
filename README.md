@@ -2,6 +2,9 @@
 
 ToySim is a microscopic traffic simulation project that utilizes the Intelligent Driver Model (IDM) and MOBILE lane change model to simulate traffic flow. This project is designed to provide a detailed and interactive simulation of traffic scenarios, including vehicle generation, traffic signal control, and visualization.
 
+![dbp9x-ys0p9](https://github.com/user-attachments/assets/4bb1125a-5cd3-4b05-9530-4d997c98e659)
+
+
 ## Features
 
 - **Vehicle Simulation**: Simulate vehicle movements based on the IDM model.
