@@ -1,4 +1,4 @@
-![logo](https://github.com/user-attachments/assets/6de24b1a-f6a4-4b22-a054-35e987125b69)
+![logo_1](https://github.com/user-attachments/assets/f7e0ff3f-b8ed-4c5e-946c-32e0958176b8)
 
 # ToySim: Micro Traffic Simulation using IDM & MOBILE Model
 
