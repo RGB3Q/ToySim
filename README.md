@@ -1,3 +1,5 @@
+![logo](https://github.com/user-attachments/assets/6de24b1a-f6a4-4b22-a054-35e987125b69)
+
 # ToySim: Micro Traffic Simulation using IDM & MOBILE Model
 
 ToySim is a microscopic traffic simulation project that utilizes the Intelligent Driver Model (IDM) and MOBILE lane change model to simulate traffic flow. This project is designed to provide a detailed and interactive simulation of traffic scenarios, including vehicle generation, traffic signal control, and visualization.
